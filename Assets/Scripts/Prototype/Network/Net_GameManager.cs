@@ -1,7 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using FishNet;
+using FishNet.Managing;
 using UnityEngine;
-using Unity.Netcode;
 
 public class Net_GameManager : MonoBehaviour
 {
@@ -100,12 +101,13 @@ public class Net_GameManager : MonoBehaviour
     public void Server_InstantiateField()
     {
         _soccerField = Instantiate(_soccerFieldPrefab, _fieldLocation, _soccerFieldPrefab.transform.rotation);
-        _soccerField.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(_soccerField.gameObject);
+        //_soccerField.GetComponent<NetworkObject>().Spawn();
     }
 
     // Without args : server spawn
     // With args : give client id for client spawn
-    public void Server_InstantiateSoccerBar(ulong? pClientId = null)
+    public void Server_InstantiateSoccerBar(int? pClientId = null)
     {
         // If we get a client id, we instantiate client soccer bar
         if (pClientId.HasValue)
@@ -115,11 +117,11 @@ public class Net_GameManager : MonoBehaviour
         else
         {
             // else, server soccer bar
-            Server_InstantiateServerSoccerBars(NetworkManager.Singleton.LocalClientId);
+            Server_InstantiateServerSoccerBars();
         }
     }
 
-    private void Server_InstantiateServerSoccerBars(ulong pServerId)
+    private void Server_InstantiateServerSoccerBars()
     {
         // TODO : this assumes server is blue side, and player is red side
         // but currently side is randomly set. Take this in account !
@@ -129,73 +131,65 @@ public class Net_GameManager : MonoBehaviour
         _initializeLocation.x -= 3.1f;
         _initializeLocation.y += .5f;
         Net_SoccerBar lSB = Instantiate(_onePlayerSoccerBarPrefab, _initializeLocation, _onePlayerSoccerBarPrefab.transform.rotation);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize();
 
         // Second, left defenders
         _initializeLocation.x += .9f;
         lSB = Instantiate(_twoPlayerSoccerBarPrefab, _initializeLocation, _twoPlayerSoccerBarPrefab.transform.rotation);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize();
 
         // Third, left halves
         _initializeLocation.x += 1.8f;
         lSB = Instantiate(_fivePlayerSoccerBarPrefab, _initializeLocation, _fivePlayerSoccerBarPrefab.transform.rotation);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize();
 
         // Last (4th), left attackers
         _initializeLocation.x += 1.8f;
         lSB = Instantiate(_threePlayerSoccerBarPrefab, _initializeLocation, _threePlayerSoccerBarPrefab.transform.rotation);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize();
     }
 
-    private void Server_InstantiateClientSoccerBars(ulong pClientId)
+    private void Server_InstantiateClientSoccerBars(int pClientId)
     {
-        ClientRpcParams lClientRpcParams = new ClientRpcParams
-        {
-            Send = new ClientRpcSendParams
-            {
-                TargetClientIds = new ulong[] { pClientId }
-            }
-        };
-
         // First, right goalkeeper
         _initializeLocation = _fieldLocation;
         _initializeLocation.x += 3.1f;
         _initializeLocation.y += .5f;
         Net_SoccerBar lSB = Instantiate(_onePlayerSoccerBarPrefab, _initializeLocation, _onePlayerSoccerBarPrefab.transform.rotation);
         //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         // Initialize it on server - server will add soccer bar reference to the corresponding player
         lSB.Server_Initialize(pClientId);
         // Initialize it on client - adding it to owning player only, and returning server info if needed
-        lSB.InitializeClientRpc(lClientRpcParams);
+        lSB.InitializeClientRpc(InstanceFinder.ClientManager.Clients[pClientId]);
 
         // Second, right defenders
         _initializeLocation.x += -.9f;
         lSB = Instantiate(_twoPlayerSoccerBarPrefab, _initializeLocation, _twoPlayerSoccerBarPrefab.transform.rotation);
         //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize(pClientId);
-        lSB.InitializeClientRpc(lClientRpcParams);
+        lSB.InitializeClientRpc(InstanceFinder.ClientManager.Clients[pClientId]);
 
         // Third, right halves
         _initializeLocation.x += -1.8f;
         lSB = Instantiate(_fivePlayerSoccerBarPrefab, _initializeLocation, _fivePlayerSoccerBarPrefab.transform.rotation);
         //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize(pClientId);
-        lSB.InitializeClientRpc(lClientRpcParams);
+        lSB.InitializeClientRpc(InstanceFinder.ClientManager.Clients[pClientId]);
 
         // Last (4th), right attackers
         _initializeLocation.x += -1.8f;
         lSB = Instantiate(_threePlayerSoccerBarPrefab, _initializeLocation, _threePlayerSoccerBarPrefab.transform.rotation);
         //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        lSB.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(lSB.gameObject);
         lSB.Server_Initialize(pClientId);
-        lSB.InitializeClientRpc(lClientRpcParams);
+        lSB.InitializeClientRpc(InstanceFinder.ClientManager.Clients[pClientId]);
     }
 
     public void Server_InstantiateBall()
@@ -205,7 +199,7 @@ public class Net_GameManager : MonoBehaviour
         _initializeLocation.y += .5f;
         _initializeLocation.z += .5f;
         _soccerBall = Instantiate(_soccerBallPrefab, _initializeLocation, _soccerBallPrefab.transform.rotation);
-        _soccerBall.GetComponent<NetworkObject>().Spawn();
+        InstanceFinder.ServerManager.Spawn(_soccerBall.gameObject);
         // TODO: unsubscribe this event somewhere later !
         _soccerBall.OnGoalEnter += Ball_OnGoalEnter;
         // TODO: same as above

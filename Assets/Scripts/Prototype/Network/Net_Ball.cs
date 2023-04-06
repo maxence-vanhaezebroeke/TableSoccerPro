@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
-using Unity.Netcode;
+using FishNet.Object;
 
 [RequireComponent(typeof(Rigidbody))]
 public class Net_Ball : NetworkBehaviour
@@ -20,9 +20,9 @@ public class Net_Ball : NetworkBehaviour
 
     private bool _isSkinned = false;
 
-    public override void OnNetworkSpawn()
+    public override void OnStartNetwork()
     {
-        base.OnNetworkSpawn();
+        base.OnStartNetwork();
 
         if (IsServer)
         {
@@ -30,7 +30,7 @@ public class Net_Ball : NetworkBehaviour
         }
 
         // Saving initial materials
-        _defaultMaterials = GetComponent<Renderer>().materials;
+        _defaultMaterials = GetComponentInChildren<Renderer>().materials;
     }
 
     void Update()
@@ -50,12 +50,12 @@ public class Net_Ball : NetworkBehaviour
         if (!IsServer)
             return;
 
-        All_ChangeSkinClientRpc();
+        All_ChangeSkinRpc();
         ChangeSkin();
     }
 
-    [ClientRpc]
-    private void All_ChangeSkinClientRpc()
+    [ObserversRpc]
+    private void All_ChangeSkinRpc()
     {
         if (IsServer)
             return;
@@ -76,7 +76,7 @@ public class Net_Ball : NetworkBehaviour
 
     private void RestoreDefaultSkin()
     {
-        GetComponent<Renderer>().materials = _defaultMaterials;
+        GetComponentInChildren<Renderer>().materials = _defaultMaterials;
         _isSkinned = false;
     }
 
@@ -89,7 +89,7 @@ public class Net_Ball : NetworkBehaviour
             lSkinBallMaterials[lMaterialIndex] = _ballSkins[0];
         }
 
-        GetComponent<Renderer>().materials = lSkinBallMaterials;
+        GetComponentInChildren<Renderer>().materials = lSkinBallMaterials;
 
         _isSkinned = true;
     }

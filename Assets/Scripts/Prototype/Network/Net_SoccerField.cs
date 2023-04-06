@@ -1,5 +1,5 @@
 using UnityEngine;
-using Unity.Netcode;
+using FishNet.Object;
 using TMPro;
 using System.Collections.Generic;
 
@@ -45,9 +45,9 @@ public class Net_SoccerField : NetworkBehaviour
     private bool _isBlueSideTaken = false;
     private bool _isRedSideTaken = false;
 
-    public override void OnNetworkSpawn()
+    public override void OnStartNetwork()
     {
-        base.OnNetworkSpawn();
+        base.OnStartNetwork();
         UtilityLibrary.ThrowIfNull(this, _blueSideTransform);
         UtilityLibrary.ThrowIfNull(this, _redSideTransform);
         UtilityLibrary.ThrowIfNull(this, _blueSideScoreText);
@@ -70,7 +70,7 @@ public class Net_SoccerField : NetworkBehaviour
         // change things for server
         OnScore(pFieldSide);
         // change things for clients
-        All_OnScoreClientRpc(pFieldSide);
+        All_OnScoreRpc(pFieldSide);
     }
 
     // Field side should be blue when ball get scored on blue net, same for red side
@@ -103,8 +103,8 @@ public class Net_SoccerField : NetworkBehaviour
         }
     }
 
-    [ClientRpc]
-    private void All_OnScoreClientRpc(FieldSide pFieldSide)
+    [ObserversRpc]
+    private void All_OnScoreRpc(FieldSide pFieldSide)
     {
         if (IsServer)
             return;
@@ -196,6 +196,5 @@ public class Net_SoccerField : NetworkBehaviour
 #pragma warning restore CS0162
 
     }
-
-
 }
+ 

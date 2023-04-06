@@ -1,10 +1,15 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Unity.Netcode;
+using FishNet.Object;
+using FishNet.Object.Synchronizing;
+using FishNet.Connection;
+using FishNet;
+using FishNet.Component.Spawning;
+using System;
 
 public class Net_Player : NetworkBehaviour
 {
+    public Action<Net_Player> OnPlayerDespawn;
 
     [SerializeField]
     private Camera _playerCamera;
@@ -24,7 +29,14 @@ public class Net_Player : NetworkBehaviour
     private Camera _mainMenuCamera;
 
     // Becomes true when player gets enough bar required to play
-    private NetworkVariable<bool> _isPlayerReady = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    //private NetworkVariable<bool> _isPlayerReady = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    [SyncVar(OnChange = nameof(OnIsPlayerReadyChanged))]
+    private bool _isPlayerReady;
+    public bool IsPlayerReady
+    {
+        get { return _isPlayerReady; }
+    }
 
     // List of soccer bar we own (we will be able to control during gameplay)
     private List<Net_SoccerBar> _soccerBars;
@@ -32,19 +44,9 @@ public class Net_Player : NetworkBehaviour
     // Controlled soccer bar index. Default -1, will be set when game starts and StartingSoccerBar is chosen.
     private int _controlledSoccerBarIndex = -1;
 
-    // Filled on network spawn - used to send ClientRpc to owning clients.
-    private ClientRpcParams _clientRpcParams;
-
-    public bool IsPlayerReady()
+    public override void OnStartNetwork()
     {
-        return _isPlayerReady.Value;
-    }
-
-    public override void OnNetworkSpawn()
-    {
-        base.OnNetworkSpawn();
-
-        _isPlayerReady.OnValueChanged += OnIsPlayerReadyChanged;
+        base.OnStartNetwork();
 
         GameObject lGO = GameObject.Find("Net_GameManagerPrefab");
         if (lGO)
@@ -52,15 +54,6 @@ public class Net_Player : NetworkBehaviour
             if (IsServer)
             {
                 _gameManager = lGO.GetComponent<Net_GameManager>();
-
-                // Filling on server rpc params to use for Client owner rpc
-                _clientRpcParams = new ClientRpcParams
-                {
-                    Send = new ClientRpcSendParams
-                    {
-                        TargetClientIds = new ulong[] { OwnerClientId }
-                    }
-                };
             }
             else
             {
@@ -73,35 +66,17 @@ public class Net_Player : NetworkBehaviour
         }
 
         // If we are the only owner of this object
-        if (NetworkManager.LocalClientId == OwnerClientId)
+        if (base.Owner.IsLocalClient)
         {
-            // When spawning soccer bars, they will ask for registering in their NetworkSpawn
-            if (IsServer)
-            {
-                Server_OnFirstStart();
-            }
-            else
-            {
-                Client_OnFirstStart();
-            }
-
             All_OnFirstStart();
-        }
-        else
-        {
-            if (IsServer)
-            {
-                Server_OnNonOwningStart();
-            }
         }
     }
 
-    public override void OnNetworkDespawn()
+    public override void OnStopNetwork()
     {
-        base.OnNetworkDespawn();
-        _isPlayerReady.OnValueChanged -= OnIsPlayerReadyChanged;
+        base.OnStopNetwork();
 
-        if (NetworkManager.LocalClientId == OwnerClientId)
+        if (IsOwner)
         {
             DisplayMenu();
             DestroyControls();
@@ -122,10 +97,10 @@ public class Net_Player : NetworkBehaviour
         }
     }
 
-    private void OnIsPlayerReadyChanged(bool pPrevious, bool pCurrent)
+    private void OnIsPlayerReadyChanged(bool pPrevious, bool pCurrent, System.Boolean pAsServer)
     {
         // if owner
-        if (NetworkManager.LocalClientId == OwnerClientId)
+        if (IsOwner)
         {
             // Order soccer bars, & possess the correct one !
             OrderSoccerBar(_soccerBars);
@@ -136,7 +111,7 @@ public class Net_Player : NetworkBehaviour
             // if owner & server (should be done only ONCE !, when the server is ready to play !)
             if (IsServer)
             {
-                _gameManager.Server_InstantiateBall();
+                //_gameManager.Server_InstantiateBall();
             }
         }
 
@@ -184,8 +159,10 @@ public class Net_Player : NetworkBehaviour
     // Because he's the server and a player (as host)
     // Here, we want to load networked object for the game :  field, ball, bars, etc.
     // MAYBE MORE !
-    void Server_OnFirstStart()
+    public override void OnStartServer()
     {
+        base.OnStartServer();
+
         Debug.Log("<color=#00000><i>On server start from owning net player</i></color>");
         // Server spawns soccer field
         _gameManager.Server_InstantiateField();
@@ -195,13 +172,25 @@ public class Net_Player : NetworkBehaviour
 
         // Server spawns its own bar
         Server_SpawnOwnSoccerBar();
+
+        _gameManager.Server_InstantiateBall();
+    }
+
+    public override void OnDespawnServer(NetworkConnection connection)
+    {
+        base.OnDespawnServer(connection);
+        OnPlayerDespawn.Invoke(this);
     }
 
     // Function called on owning client, as it spawns his net_player from the server
     // Here we can do client things as when we're joining, such as :
     // asking for bars ....  MAYBE MORE
-    void Client_OnFirstStart()
+    public override void OnStartClient()
     {
+        base.OnStartClient();
+
+        if (IsServer)
+            return;
         // On spawn, client asks server to spawn him a soccer bar
         SpawnSoccerBarForClientServerRpc();
     }
@@ -312,10 +301,10 @@ public class Net_Player : NetworkBehaviour
     // Server checks every client if they can start the game (see above)
     bool Server_CanEveryPlayerStartGame()
     {
-        IReadOnlyDictionary<ulong, NetworkClient> lConnectedClients = NetworkManager.Singleton.ConnectedClients;
+        List<Net_Player> lPlayers = InstanceFinder.NetworkManager.GetComponent<FNet_Players>().Players;
 
         // First, we're checking if the number of player is good enough
-        if (lConnectedClients.Count < _gameManager.NumberOfPlayers())
+        if (lPlayers.Count < _gameManager.NumberOfPlayers())
         {
             Debug.Log("Not enough player connected - waiting for more...");
             return false;
@@ -325,22 +314,23 @@ public class Net_Player : NetworkBehaviour
 
         int lIgnoredPlayer = 0;
         // Foreach connected clients
-        foreach (KeyValuePair<ulong, NetworkClient> lConnectedClient in lConnectedClients)
+        foreach (Net_Player lPlayer in lPlayers)
         {
-            Net_Player lNetPlayer = lConnectedClient.Value.PlayerObject.GetComponent<Net_Player>();
-            if (!lNetPlayer)
+            InstanceFinder.NetworkManager.GetComponent<PlayerSpawner>();
+
+            if (!lPlayer)
             {
                 Debug.Log("PlayerObject is not a lNetPlayer - he will not be taken into ReadyToStartGame account");
                 lIgnoredPlayer++;
             }
-            else if (!lNetPlayer.IsPlayerReady())
+            else if (!lPlayer.IsPlayerReady)
             {
-                Debug.Log("Player " + lNetPlayer.OwnerClientId + " is not ready...");
+                Debug.Log("Player " + lPlayer.OwnerId + " is not ready...");
                 return false;
             }
         }
 
-        if (lConnectedClients.Count - lIgnoredPlayer < _gameManager.NumberOfPlayers())
+        if (lPlayers.Count - lIgnoredPlayer < _gameManager.NumberOfPlayers())
         {
             Debug.Log("Not enough lNetPlayer connected - waiting for more...");
             return false;
@@ -355,13 +345,11 @@ public class Net_Player : NetworkBehaviour
     void SpawnSoccerBarForClientServerRpc()
     {
         // If owning client is connected
-        if (NetworkManager.ConnectedClients.ContainsKey(OwnerClientId))
+        if (InstanceFinder.ClientManager.Clients[base.OwnerId] != null)
         {
-            // Retrieve the client information
-            NetworkClient client = NetworkManager.ConnectedClients[OwnerClientId];
             // Asks the game manager to spawn soccer bar (because it's its role)
             // We only need the client id to give him authority on soccer bar
-            _gameManager.Server_InstantiateSoccerBar(client.ClientId);
+            _gameManager.Server_InstantiateSoccerBar(base.OwnerId);
         }
     }
 
@@ -373,15 +361,15 @@ public class Net_Player : NetworkBehaviour
         }
 
         Debug.Log("Yay ! Adding soccer bar : "
-            + pSoccerBar.GetComponent<NetworkObject>().NetworkObjectId
+            + pSoccerBar.GetComponent<NetworkObject>().ObjectId
             + " of player : "
-            + GetComponent<NetworkObject>().NetworkObjectId
+            + GetComponent<NetworkObject>().ObjectId
             + " - Soccer bar has : " + pSoccerBar.NumberOfPlayer() + " players.");
 
         _soccerBars.Add(pSoccerBar);
 
         // If is only owner
-        if (NetworkManager.LocalClientId == OwnerClientId)
+        if (IsOwner)
         {
             // owning server
             if (IsServer)
@@ -406,21 +394,22 @@ public class Net_Player : NetworkBehaviour
     [ServerRpc]
     void OnSoccerBarAddedServerRpc()
     {
-        OnSoccerBarAddedClientRpc(_gameManager.NumberOfBarsRequired(), _clientRpcParams);
+        OnSoccerBarAddedRpc(InstanceFinder.ClientManager.Clients[base.OwnerId], _gameManager.NumberOfBarsRequired());
     }
 
-    [ClientRpc]
-    void OnSoccerBarAddedClientRpc(int pNumberOfBars, ClientRpcParams pClientRpcParams)
+    [TargetRpc]
+    void OnSoccerBarAddedRpc(NetworkConnection pNetworkConnection, int pNumberOfBars)
     {
-        if (NetworkManager.LocalClientId != OwnerClientId)
+        if (!IsOwner)
         {
             Debug.LogWarning("Function should only be triggered on owning client. Returning.");
             return;
         }
+        Debug.Log("target rpc working?");
 
         if (CanStartGame(pNumberOfBars))
         {
-            _isPlayerReady.Value = true;
+            _isPlayerReady = true;
         }
         else
         {
@@ -439,7 +428,7 @@ public class Net_Player : NetworkBehaviour
         // Server checks if he's ready
         if (CanStartGame(_gameManager.NumberOfBarsRequired()))
         {
-            _isPlayerReady.Value = true;
+            _isPlayerReady = true;
         }
         else
         {
@@ -454,20 +443,13 @@ public class Net_Player : NetworkBehaviour
         HideMenu(true);
 
         // Start game for every connected Net_Player !
-        IReadOnlyDictionary<ulong, NetworkClient> lConnectedClients = NetworkManager.Singleton.ConnectedClients;
-        foreach (KeyValuePair<ulong, NetworkClient> lConnectedClient in lConnectedClients)
+        List<Net_Player> lPlayers = InstanceFinder.NetworkManager.GetComponent<FNet_Players>().Players;
+        foreach (Net_Player lPlayer in lPlayers)
         {
-            NetworkObject lPlayer = lConnectedClient.Value.PlayerObject;
-            if (!lPlayer)
-            {
-                Debug.LogError("Connected player has no player? Shouldn't be happening here...");
-            }
-
-            Net_Player lNetPlayer = lPlayer.GetComponent<Net_Player>();
             if (lPlayer)
             {
                 // Start match for this player
-                lNetPlayer.Server_GameHasStarted();
+                lPlayer.Server_GameHasStarted();
             }
         }
     }
@@ -534,26 +516,14 @@ public class Net_Player : NetworkBehaviour
             return;
         }
 
-        IReadOnlyDictionary<ulong, NetworkClient> lConnectedClients = NetworkManager.Singleton.ConnectedClients;
+        List<Net_Player> lPlayers = InstanceFinder.NetworkManager.GetComponent<FNet_Players>().Players;
         // Foreach connected clients (including server)
-        foreach (KeyValuePair<ulong, NetworkClient> lConnectedClient in lConnectedClients)
+        foreach (Net_Player lPlayer in lPlayers)
         {
-            NetworkObject lPlayerObject = lConnectedClient.Value.PlayerObject;
-            // If the player object exists, and the owner id is the same as our server
-            if (lPlayerObject && lPlayerObject.OwnerClientId == NetworkManager.LocalClientId)
+            if (lPlayer.IsOwner)
             {
-                // we did it!
-                Net_Player lPlayer = lPlayerObject.GetComponent<Net_Player>();
-                if (!lPlayer)
-                {
-                    Debug.LogWarning("Server is not a player ?");
-                    return;
-                }
-                else
-                {
-                    lPlayer.PossessStartingBar();
-                    return;
-                }
+                lPlayer.PossessStartingBar();
+                return;
             }
         }
     }
@@ -590,8 +560,8 @@ public class Net_Player : NetworkBehaviour
         }
     }
 
-    [ClientRpc]
-    void PossessStartingBarClientRpc(ClientRpcParams pClientRpcParams)
+    [TargetRpc]
+    void PossessStartingBarRpc(NetworkConnection pNetworkConnection)
     {
         PossessStartingBar();
     }
@@ -611,7 +581,7 @@ public class Net_Player : NetworkBehaviour
     void Update()
     {
         // If we're not owner, don't go further
-        if (NetworkManager.LocalClientId != OwnerClientId)
+        if (!IsOwner)
         {
             return;
         }
@@ -619,12 +589,15 @@ public class Net_Player : NetworkBehaviour
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             Debug.Log("Shutting down...");
-            NetworkManager.Singleton.Shutdown();
+            if (IsServer)
+                NetworkManager.ServerManager.StopConnection(true);
+            else
+                NetworkManager.ClientManager.StopConnection();
             DisplayMenu();
         }
 
         // If player is not ready, nothing to do for now
-        if (!_isPlayerReady.Value)
+        if (!_isPlayerReady)
         {
             return;
         }

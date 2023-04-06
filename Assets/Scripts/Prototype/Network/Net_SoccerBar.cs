@@ -1,8 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Unity.Netcode;
+using FishNet.Object;
 using System;
+using FishNet.Object.Synchronizing;
+using FishNet.Connection;
+using FishNet;
 
 [RequireComponent(typeof(Rigidbody))]
 public class Net_SoccerBar : NetworkBehaviour
@@ -70,7 +73,8 @@ public class Net_SoccerBar : NetworkBehaviour
     // Cooldown is added to this value, and when variables is at 0, blast can be made
     private float _blastCooldown = 0f;
 
-    private NetworkVariable<Net_SoccerField.FieldSide> _fieldSide = new NetworkVariable<Net_SoccerField.FieldSide>(Net_SoccerField.FieldSide.None);
+    [SyncVar(OnChange = nameof(FieldSide_OnValueChanged))]
+    private Net_SoccerField.FieldSide _fieldSide;
 
     #region Mouse movement
 
@@ -86,13 +90,14 @@ public class Net_SoccerBar : NetworkBehaviour
 
     // When player is on blue side, factor is 1. When red side, factor is -1.
     // This is used to invert controls when a player is changing side.
-    private NetworkVariable<int> _fieldSideFactor = new NetworkVariable<int>(1);
+    [SyncVar]
+    private int _fieldSideFactor = 1;
 
     #endregion
 
-    public override void OnNetworkSpawn()
+    public override void OnStartNetwork()
     {
-        base.OnNetworkSpawn();
+        base.OnStartNetwork();
 
         _rb = GetComponent<Rigidbody>();
 
@@ -107,20 +112,18 @@ public class Net_SoccerBar : NetworkBehaviour
         else
         {
             // If we're connecting late client, change correct side
-            if (_fieldSide.Value != Net_SoccerField.FieldSide.None)
+            if (_fieldSide != Net_SoccerField.FieldSide.None)
             {
-                SetSide(_fieldSide.Value);
+                SetSide(_fieldSide);
             }
         }
-
-        _fieldSide.OnValueChanged += FieldSide_OnValueChanged;
 
         _lastMouseY = Input.GetAxis("Mouse Y");
         _initialZLocation = transform.position.z;
         _initialMaterial = _renderer.material;
     }
 
-    private void FieldSide_OnValueChanged(Net_SoccerField.FieldSide pPreviousValue, Net_SoccerField.FieldSide pNewValue)
+    private void FieldSide_OnValueChanged(Net_SoccerField.FieldSide pPreviousValue, Net_SoccerField.FieldSide pNewValue, System.Boolean pAsServer)
     {
         if (pNewValue != Net_SoccerField.FieldSide.None)
         {
@@ -133,10 +136,13 @@ public class Net_SoccerBar : NetworkBehaviour
     // The problem with client-side is that ball server-side cannot interact properly with bar client-side
     // Physics are in play, so hard to do. Client-side prediction was an idea, but
     // too complicated to implement for me now, and not solving physics issues
-    [ClientRpc]
-    public void InitializeClientRpc(ClientRpcParams pRpcParams)
+    [TargetRpc]
+    public void InitializeClientRpc(NetworkConnection pClientConnection)
     {
-        Debug.Log("I own bar : " + NetworkObjectId);
+        Debug.Log("I own bar : " + base.ObjectId);
+        
+        return;
+        /*
         NetworkObject lPlayer = NetworkManager.LocalClient.PlayerObject;
 
         // FIXME: in this section, returning is the only thing i do to prevent next of code to go in error
@@ -155,28 +161,31 @@ public class Net_SoccerBar : NetworkBehaviour
         }
 
         lNetPlayer.AddSoccerBar(this);
+        */
     }
 
-    public void Server_Initialize(ulong? pClientId = null)
+    public void Server_Initialize(int? pClientId = null)
     {
         if (!IsServer)
         {
             return;
         }
 
-        ulong lOwnerNetworkId;
+        int lOwnerNetworkId;
 
         if (pClientId != null)
         {
-            Debug.Log("Client : " + pClientId + " own bar : " + NetworkObjectId);
+            Debug.Log("Client : " + pClientId + " own bar : " + base.ObjectId);
             lOwnerNetworkId = pClientId.Value;
         }
         else
         {
-            Debug.Log("I own bar : " + NetworkObjectId);
-            lOwnerNetworkId = NetworkManager.Singleton.LocalClientId;
+            Debug.Log("I own bar : " + base.ObjectId);
+            lOwnerNetworkId = ClientManager.Connection.ClientId;
         }
 
+        return;
+        /*
         NetworkObject lPlayer = NetworkManager.Singleton.ConnectedClients[lOwnerNetworkId].PlayerObject;
 
         // FIXME: in this section, returning is the only thing i do to prevent next of code to go in error
@@ -195,6 +204,7 @@ public class Net_SoccerBar : NetworkBehaviour
         }
 
         lNetPlayer.AddSoccerBar(this);
+        */
     }
 
     public void Possess()
@@ -221,8 +231,8 @@ public class Net_SoccerBar : NetworkBehaviour
     {
         if (_isControlledByPlayer)
         {
-            _mouseScrollValue = Input.GetAxis("Mouse ScrollWheel") * _fieldSideFactor.Value;
-            _mouseY = Input.GetAxis("Mouse Y") * _fieldSideFactor.Value;
+            _mouseScrollValue = Input.GetAxis("Mouse ScrollWheel") * _fieldSideFactor;
+            _mouseY = Input.GetAxis("Mouse Y") * _fieldSideFactor;
             _leftClick = Input.GetMouseButtonDown(0);
 
             // NOTE: I have to do this, because i'm dealing with ball physics. So i can't
@@ -296,7 +306,7 @@ public class Net_SoccerBar : NetworkBehaviour
         if (pLeftClickDown)
         {
             _rb.angularVelocity = Vector3.zero;
-            _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor.Value, ForceMode.Impulse);
+            _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
 
             StartCoroutine(nameof(AfterPowerShot));
         }
@@ -309,10 +319,10 @@ public class Net_SoccerBar : NetworkBehaviour
         // First, wait a bit
         yield return new WaitForSeconds(0.04f);
         // Apply force again, so that power is still at max speed !
-        _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor.Value, ForceMode.Impulse);
+        _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
         yield return new WaitForSeconds(0.035f);
         // After the full shot, send player back
-        _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor.Value, ForceMode.Impulse);
+        _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
         yield return new WaitForSeconds(0.21f);
         // When player is at start location, reduce its speed
         _rb.angularVelocity *= 0.1f;
@@ -389,7 +399,7 @@ public class Net_SoccerBar : NetworkBehaviour
                 // We blast !
                 float lBlastRadius = lForceValue.magnitude * 0.25f;
                 Server_Blast(lBlastRadius, pCollision.GetContact(0).point);
-                All_BlastClientRpc(lBlastRadius, pCollision.GetContact(0).point);
+                All_BlastRpc(lBlastRadius, pCollision.GetContact(0).point);
                 // Setting blast timer to 1
                 _blastCooldown = 1f;
             }
@@ -404,8 +414,8 @@ public class Net_SoccerBar : NetworkBehaviour
         Blast(pBlastRadius, pLocation);
     }
 
-    [ClientRpc]
-    private void All_BlastClientRpc(float pBlastRadius, Vector3 pLocation)
+    [ObserversRpc]
+    private void All_BlastRpc(float pBlastRadius, Vector3 pLocation)
     {
         if (IsServer)
             return;
@@ -446,11 +456,11 @@ public class Net_SoccerBar : NetworkBehaviour
             return;
         }
 
-        Debug.Log("Bar : " + NetworkObjectId + " is red side !");
-        _fieldSideFactor.Value = -1;
+        Debug.Log("Bar : " + base.ObjectId + " is red side !");
+        _fieldSideFactor = -1;
         // ---
         // Setting field side
-        _fieldSide.Value = Net_SoccerField.FieldSide.Red;
+        _fieldSide = Net_SoccerField.FieldSide.Red;
     }
 
     public void Server_SetBlueSide()
@@ -458,10 +468,10 @@ public class Net_SoccerBar : NetworkBehaviour
         if (!IsServer)
             return;
 
-        if (_fieldSideFactor.Value != 1)
-            _fieldSideFactor.Value = 1;
+        if (_fieldSideFactor != 1)
+            _fieldSideFactor = 1;
 
-        _fieldSide.Value = Net_SoccerField.FieldSide.Blue;
+        _fieldSide = Net_SoccerField.FieldSide.Blue;
     }
 
     private void SetSide(Net_SoccerField.FieldSide pFieldSide)

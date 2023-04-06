@@ -39,6 +39,10 @@ PrefabInstance:
       propertyPath: _soccerPlayers.Array.data[4]
       value: 
       objectReference: {fileID: 7867837956366721549}
+    - target: {fileID: 4992726915129801541, guid: 6a855f271baed3e4592d45679828cdc9, type: 3}
+      propertyPath: <AssetPathHash>k__BackingField
+      value: 13764537811014063456
+      objectReference: {fileID: 0}
     - target: {fileID: 6201218266815144334, guid: 6a855f271baed3e4592d45679828cdc9, type: 3}
       propertyPath: m_Name
       value: Net_FivePlayerSoccerBarPrefab Variant

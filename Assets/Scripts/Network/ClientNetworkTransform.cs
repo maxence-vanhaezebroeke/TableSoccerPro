@@ -1,4 +1,4 @@
-using Unity.Netcode.Components;
+/* using Unity.Netcode.Components;
 using UnityEngine;
 
 namespace Unity.Multiplayer.Utilities.ClientAuthority
@@ -23,4 +23,4 @@ namespace Unity.Multiplayer.Utilities.ClientAuthority
             return _isServerAuthoritative;
         }
     }
-}
+} */

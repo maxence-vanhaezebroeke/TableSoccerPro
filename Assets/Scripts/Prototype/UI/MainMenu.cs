@@ -1,4 +1,3 @@
-using Unity.Netcode;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Relay.Models;
@@ -7,8 +6,10 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
-using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
+using FishNet.Managing;
+using FishNet.Managing.Server;
+using FishNet;
 
 public class MainMenu : MonoBehaviour
 {
@@ -55,6 +56,7 @@ public class MainMenu : MonoBehaviour
 
         _exitGameButton.onClick.AddListener(QuitGame);
 
+/*
         string[] lArguments = System.Environment.GetCommandLineArgs();
         for (int lArgumentIndex = 0; lArgumentIndex < lArguments.Length; lArgumentIndex++)
         {
@@ -74,21 +76,23 @@ public class MainMenu : MonoBehaviour
                 lUTransport.ConnectionData.ServerListenAddress = lIp;
             }
         }
+        */
     }
 
 
     // ----- LAN
     private void StartHost()
     {
-        if (!NetworkManager.Singleton.StartHost())
+        if (!InstanceFinder.ServerManager.StartConnection())
         {
             Debug.LogError("Error : server host couldn't be created !");
         }
+        InstanceFinder.ClientManager.StartConnection();
     }
 
     private void StartClient()
     {
-        NetworkManager.Singleton.StartClient();
+        InstanceFinder.ClientManager.StartConnection();
     }
     // -----
 
@@ -124,8 +128,11 @@ public class MainMenu : MonoBehaviour
         _joinCodeText.text = JoinCode;
 
         Debug.Log("Server join code : " + JoinCode);
+        return;
+        /*
         NetworkManager.Singleton.gameObject.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
         NetworkManager.Singleton.StartHost();
+        */
     }
 
     private async void StartMultiplayerClient()
@@ -150,8 +157,11 @@ public class MainMenu : MonoBehaviour
         //Ask Unity Services for allocation data based on a join code
         JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(_joinCodeInput.text);
 
+        return;
+        /*
         NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
         NetworkManager.Singleton.StartClient();
+        */
     }
 
 
