@@ -10,6 +10,9 @@ using Unity.Networking.Transport.Relay;
 using FishNet.Managing;
 using FishNet.Managing.Server;
 using FishNet;
+using FishNet.Transporting.Multipass;
+using FishNet.Transporting.FishyUnityTransport;
+using FishNet.Transporting.Tugboat;
 
 public class MainMenu : MonoBehaviour
 {
@@ -56,7 +59,6 @@ public class MainMenu : MonoBehaviour
 
         _exitGameButton.onClick.AddListener(QuitGame);
 
-/*
         string[] lArguments = System.Environment.GetCommandLineArgs();
         for (int lArgumentIndex = 0; lArgumentIndex < lArguments.Length; lArgumentIndex++)
         {
@@ -65,34 +67,29 @@ public class MainMenu : MonoBehaviour
                 string lIp = lArguments[lArgumentIndex + 1];
                 Debug.Log("Yay ! We have successfully retrieved host ip from argument. It is : " + lIp);
 
-                UnityTransport lUTransport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-                if (!lUTransport)
-                {
-                    Debug.LogError("No Unity Transport attached to network manager???");
-                    return;
-                }
-                // lUTransport has been checked above
-                lUTransport.ConnectionData.Address = lIp;
-                lUTransport.ConnectionData.ServerListenAddress = lIp;
+                InstanceFinder.TransportManager.GetTransport<Tugboat>().SetServerBindAddress(lIp, FishNet.Transporting.IPAddressType.IPv4);
+                InstanceFinder.TransportManager.GetTransport<Tugboat>().SetClientAddress(lIp);
             }
         }
-        */
     }
 
 
     // ----- LAN
     private void StartHost()
     {
-        if (!InstanceFinder.ServerManager.StartConnection())
+        InstanceFinder.TransportManager.GetTransport<Multipass>().SetClientTransport<Tugboat>();
+        if (!InstanceFinder.TransportManager.GetTransport<Multipass>().StartConnection(true, 0))
         {
             Debug.LogError("Error : server host couldn't be created !");
         }
-        InstanceFinder.ClientManager.StartConnection();
+
+        InstanceFinder.NetworkManager.ClientManager.StartConnection();
     }
 
     private void StartClient()
     {
-        InstanceFinder.ClientManager.StartConnection();
+        InstanceFinder.TransportManager.GetTransport<Multipass>().SetClientTransport<Tugboat>();
+        InstanceFinder.NetworkManager.ClientManager.StartConnection();
     }
     // -----
 
@@ -128,6 +125,7 @@ public class MainMenu : MonoBehaviour
         _joinCodeText.text = JoinCode;
 
         Debug.Log("Server join code : " + JoinCode);
+        SettingNetworkManagerProperties(allocation, JoinCode);
         return;
         /*
         NetworkManager.Singleton.gameObject.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
@@ -157,11 +155,40 @@ public class MainMenu : MonoBehaviour
         //Ask Unity Services for allocation data based on a join code
         JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(_joinCodeInput.text);
 
+        SettingNetworkManagerProperties(allocation);
         return;
         /*
         NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
         NetworkManager.Singleton.StartClient();
         */
+    }
+
+    private async void SettingNetworkManagerProperties(Allocation pAllocation, string JoinCode)
+    {
+        InstanceFinder.NetworkManager.TransportManager.GetTransport<Multipass>().SetClientTransport<FishyUnityTransport>();
+        FishyUnityTransport lTransport = InstanceFinder.NetworkManager.TransportManager.GetTransport<FishyUnityTransport>();
+        lTransport.SetRelayServerData(new RelayServerData(pAllocation, "dtls"));
+
+        // TODO: encapsulation
+        if (!InstanceFinder.TransportManager.GetTransport<Multipass>().StartConnection(true, 1))
+        {
+            Debug.LogError("Error : server host couldn't be created !");
+        }
+
+        JoinAllocation lJoinAllocation = await RelayService.Instance.JoinAllocationAsync(JoinCode);
+        lTransport.SetRelayServerData(new RelayServerData(lJoinAllocation, "dtls"));
+
+        InstanceFinder.NetworkManager.ClientManager.StartConnection();
+    }
+
+    private void SettingNetworkManagerProperties(JoinAllocation pAllocation)
+    {
+        InstanceFinder.NetworkManager.TransportManager.GetTransport<Multipass>().SetClientTransport<FishyUnityTransport>();
+        FishyUnityTransport lTransport = InstanceFinder.NetworkManager.TransportManager.GetTransport<FishyUnityTransport>();
+        lTransport.SetRelayServerData(new RelayServerData(pAllocation, "dtls"));
+
+        // TODO: encapsulation
+        InstanceFinder.NetworkManager.ClientManager.StartConnection();
     }
 
 

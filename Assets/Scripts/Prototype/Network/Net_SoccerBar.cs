@@ -6,13 +6,15 @@ using System;
 using FishNet.Object.Synchronizing;
 using FishNet.Connection;
 using FishNet;
+using FishNet.Object.Prediction;
+using FishNet.Transporting;
 
 [RequireComponent(typeof(Rigidbody))]
 public class Net_SoccerBar : NetworkBehaviour
 {
     public Action<Net_SoccerBar> Server_OnStartNetwork;
 
-    private float MAX_BAR_FORCE = 1000f;
+    private readonly float MAX_BAR_FORCE = 1000f;
 
     public enum BarDisposition
     {
@@ -20,6 +22,35 @@ public class Net_SoccerBar : NetworkBehaviour
         Two, // Defenders
         Three, // Attackers
         Five // Halves
+    }
+
+    public struct MoveData : IReplicateData
+    {
+        // tells if we need to do powershot, or move the bar
+        public bool IsPowerShot;
+        // NOTE: if we move the bar, we need force & torque values ! but, for powershot, those are useless
+        public bool ResetVelocity;
+        public Vector3 AddedForce;
+        public Vector3 AddedTorque;
+
+        // Needed stuff for IReplicateData (prediction)
+        private uint _tick;
+        public void Dispose() { }
+        public uint GetTick() => _tick;
+        public void SetTick(uint value) => _tick = value;
+    }
+
+    public struct ReconcileData : IReconcileData
+    {
+        public Vector3 Position;
+        public Quaternion Rotation;
+        public Vector3 Velocity;
+        public Vector3 AngularVelocity;
+
+        private uint _tick;
+        public void Dispose() { }
+        public uint GetTick() => _tick;
+        public void SetTick(uint value) => _tick = value;
     }
 
     #region Exposed variables
@@ -97,9 +128,24 @@ public class Net_SoccerBar : NetworkBehaviour
 
     #endregion
 
+    #region Client-side Prediction
+
+    // Default values for prediction. Changing them in CSP-way will cause CSP to activate
+    private bool _movementQueued = false;
+    private bool _isPowerShotQueued = false;
+    private bool _resetVelocity = false;
+
+    private Vector3 _addedForceQueued;
+    private Vector3 _addedTorqueQueued;
+
+    #endregion
+
+
     public override void OnStartNetwork()
     {
         base.OnStartNetwork();
+        base.TimeManager.OnTick += TimeManager_OnTick;
+        base.TimeManager.OnPostTick += TimeManager_OnPostTick;
 
         _rb = GetComponent<Rigidbody>();
 
@@ -122,6 +168,100 @@ public class Net_SoccerBar : NetworkBehaviour
         {
             Server_OnStartNetwork?.Invoke(this);
             Debug.Log("Net_soccerBar OnStartNetworkServer!");
+        }
+    }
+
+    public override void OnStopNetwork()
+    {
+        base.OnStopNetwork();
+        if (base.TimeManager)
+        {
+            base.TimeManager.OnTick += TimeManager_OnTick;
+            base.TimeManager.OnPostTick += TimeManager_OnPostTick;
+        }
+    }
+
+    private void TimeManager_OnTick()
+    {
+        if (base.IsOwner)
+        {
+            Reconcile(default, false);
+            BuildActions(out MoveData md);
+            Move(md, false);
+        }
+
+        if (base.IsServer)
+        {
+            Move(default, true);
+        }
+    }
+
+    [Reconcile]
+    private void Reconcile(ReconcileData pRD, bool pAsServer, Channel channel = Channel.Reliable)
+    {
+        transform.position = pRD.Position;
+        transform.rotation = pRD.Rotation;
+        _rb.velocity = pRD.Velocity;
+        _rb.angularVelocity = pRD.AngularVelocity;
+    }
+
+    private void BuildActions(out MoveData md)
+    {
+        md = default;
+        md.IsPowerShot = _isPowerShotQueued;
+        md.AddedForce = _addedForceQueued;
+        md.AddedTorque = _addedTorqueQueued;
+
+        // Resetting infos for next tick
+        _movementQueued = false;
+        _isPowerShotQueued = false;
+        _resetVelocity = false;
+        _addedForceQueued = Vector3.zero;
+        _addedTorqueQueued = Vector3.zero;
+    }
+
+    [Replicate]
+    private void Move(MoveData pMoveData, bool pAsServer, Channel channel = Channel.Reliable, bool replaying = false)
+    {
+        if (pMoveData.IsPowerShot)
+        {
+            _rb.angularVelocity = Vector3.zero;
+            _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Acceleration);
+            StartCoroutine(nameof(AfterPowerShot));
+
+            return;
+        }
+
+        if (pMoveData.ResetVelocity)
+        {
+            _rb.velocity = Vector3.zero;
+        }
+        else if (pMoveData.AddedForce != Vector3.zero)
+        {
+            _rb.AddForce(pMoveData.AddedForce, ForceMode.Acceleration);
+        }
+
+        if (pMoveData.AddedTorque != Vector3.zero)
+        {
+            _rb.AddTorque(pMoveData.AddedTorque, ForceMode.Acceleration);
+        }
+    }
+
+    private void TimeManager_OnPostTick()
+    {
+        if (base.IsServer)
+        {
+            // I haven't got tons of networking & physics implied, so in order to be accurate
+            // with soccer bars, I reconcile every ticks
+            ReconcileData rd = new ReconcileData()
+            {
+                Position = transform.position,
+                Rotation = transform.rotation,
+                Velocity = _rb.velocity,
+                AngularVelocity = _rb.angularVelocity
+            };
+
+            Reconcile(rd, true);
         }
     }
 
@@ -229,7 +369,7 @@ public class Net_SoccerBar : NetworkBehaviour
         transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation);
     }
 
-    void FixedUpdate()
+    void Update()
     {
         // Only owners can move bar
         if (!IsOwner)
@@ -257,26 +397,12 @@ public class Net_SoccerBar : NetworkBehaviour
     {
         _resetRotationTimer = 0f;
 
-        // ----- Update Rotation
-        if (pScroll != 0)
-        {
-            float lMouseScrollFactor = pScroll * 2f;
-
-            // if we scrolled in opposite direction as current velocity, make it count more by lowering angular velocity 
-            if (Mathf.Sign(lMouseScrollFactor) != Mathf.Sign(_rb.angularVelocity.z))
-                _rb.angularVelocity *= .4f;
-
-            // Add torque force to our bar to spin
-            _rb.AddTorque(0f, 0f, lMouseScrollFactor * _scrollSpeed, ForceMode.Acceleration);
-        }
-        // -----
-
         // ----- Update Movement
         // If mouse changed
         if (pMoveY != _lastMouseY)
         {
-            // in bounds, add normal force
-            _rb.AddForce(0f, 0f, pMoveY * _barSpeed, ForceMode.Acceleration);
+            _movementQueued = true;
+            _addedForceQueued = new Vector3(0f, 0f, pMoveY * _barSpeed);
 
             _lastMouseY = pMoveY;
         }
@@ -287,24 +413,35 @@ public class Net_SoccerBar : NetworkBehaviour
         float lNextZValue = transform.position.z + _rb.velocity.z * Time.fixedDeltaTime;
         if (lNextZValue > _initialZLocation + _zBound)
         {
-            // if Z+ bound, sets position just under it, and reset velocity
-            transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation + _zBound);
-            _rb.velocity = Vector3.zero;
+            _movementQueued = true;
+            _resetVelocity = true;
         }
         else if (lNextZValue < _initialZLocation - _zBound)
         {
-            // if Z- bound, sets position just above it, and reset velocity
-            transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation - _zBound);
-            _rb.velocity = Vector3.zero;
+            _movementQueued = true;
+            _resetVelocity = true;
         }
+
+        // ----- Update Rotation
+        if (pScroll != 0)
+        {
+            _movementQueued = true;
+            float lMouseScrollFactor = pScroll * 2f;
+            float lZRotation = lMouseScrollFactor * _scrollSpeed;
+
+            // if we scrolled in opposite direction as current velocity, make force count more 
+            if (Mathf.Sign(lMouseScrollFactor) != Mathf.Sign(_rb.angularVelocity.z))
+                lZRotation *= 1.5f;
+
+            _addedTorqueQueued = new Vector3(0f, 0f, lZRotation);
+        }
+        // -----
 
         // Left click = power shot, maximum power !
         if (pLeftClickDown)
         {
-            _rb.angularVelocity = Vector3.zero;
-            _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
-
-            StartCoroutine(nameof(AfterPowerShot));
+            _movementQueued = true;
+            _isPowerShotQueued = true;
         }
         // -----
     }
@@ -319,7 +456,7 @@ public class Net_SoccerBar : NetworkBehaviour
         yield return new WaitForSeconds(0.035f);
         // After the full shot, send player back
         _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
-        yield return new WaitForSeconds(0.18f);
+        yield return new WaitForSeconds(0.15f);
         // When player is at start location, reduce its speed
         _rb.angularVelocity *= 0.1f;
     }
@@ -335,9 +472,10 @@ public class Net_SoccerBar : NetworkBehaviour
                 // if rigidbody is not moving too fast
                 if (_rb.angularVelocity.z < 7f)
                 {
-                    float lDirection = _rb.transform.rotation.eulerAngles.z > 180f ? 1 : -1;
+                    _movementQueued = true;
                     // Moving rigidbody towards 0° angle.
-                    _rb.AddTorque(new Vector3(0f, 0f, 5f * lDirection), ForceMode.Acceleration);
+                    float lDirection = _rb.transform.rotation.eulerAngles.z > 180f ? 1 : -1;
+                    _addedTorqueQueued = new Vector3(0f, 0f, 5f * lDirection);
                 }
             }
         }

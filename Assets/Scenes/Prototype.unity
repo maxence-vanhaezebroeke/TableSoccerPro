@@ -250,7 +250,9 @@ GameObject:
   - component: {fileID: 327375508}
   - component: {fileID: 327375510}
   - component: {fileID: 327375511}
+  - component: {fileID: 327375515}
   - component: {fileID: 327375512}
+  - component: {fileID: 327375514}
   - component: {fileID: 327375513}
   m_Layer: 0
   m_Name: NetworkManager
@@ -305,7 +307,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34e4a322dca349547989b14021da4e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Transport: {fileID: 327375512}
+  Transport: {fileID: 327375515}
   _intermediateLayer: {fileID: 0}
   _latencySimulator:
     _enabled: 0
@@ -342,7 +344,7 @@ MonoBehaviour:
   _ipv4BindAddress: 
   _ipv6BindAddress: 
   _port: 7770
-  _maximumClients: 4095
+  _maximumClients: 2
   _clientAddress: localhost
   _timeout: 15
 --- !u!114 &327375513
@@ -361,10 +363,54 @@ MonoBehaviour:
   _timingType: 0
   _allowTickDropping: 0
   _maximumFrameTicks: 2
-  _tickRate: 30
+  _tickRate: 60
   _pingInterval: 1
   _timingInterval: 2
   _physicsMode: 1
+--- !u!114 &327375514
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 327375504}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1cdcee4396754c63a1574492499cffc8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _protocolType: 1
+  _maxPacketQueueSize: 128
+  _maxPayloadSize: 6144
+  _heartbeatTimeoutMS: 500
+  _connectTimeoutMS: 1000
+  _maxConnectAttempts: 60
+  _disconnectTimeoutMS: 30000
+  ConnectionData:
+    Address: 127.0.0.1
+    Port: 7777
+    ServerListenAddress: 
+  DebugSimulator:
+    PacketDelayMS: 0
+    PacketJitterMS: 0
+    PacketDropRate: 0
+  _maximumClients: 2
+--- !u!114 &327375515
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 327375504}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 314b449d3505bd24487ba69b61c2fda5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalServerActions: 0
+  _transports:
+  - {fileID: 327375512}
+  - {fileID: 327375514}
 --- !u!1001 &553442622
 PrefabInstance:
   m_ObjectHideFlags: 0

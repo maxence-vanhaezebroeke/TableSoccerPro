@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: FNet_PrefabObjects
   m_EditorClassIdentifier: 
   _prefabs:
-  - {fileID: 5678089230654302290, guid: a483a1351ac69fe499214684927bff67, type: 3}
+  - {fileID: 7356002453405929000, guid: 2520a0e8b96ee44479b155922dc2728d, type: 3}
   - {fileID: 5439114406972832832, guid: 5ce10a260538839498422be678bc7246, type: 3}
   - {fileID: 9204737681440625618, guid: 45770be59609cd840b3220c24d8a894c, type: 3}
   - {fileID: 3239592738049872917, guid: 5d797a9f351f86344a5007e4f6965ec6, type: 3}
