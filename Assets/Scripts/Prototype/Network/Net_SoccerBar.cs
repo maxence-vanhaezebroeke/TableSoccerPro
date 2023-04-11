@@ -10,6 +10,8 @@ using FishNet;
 [RequireComponent(typeof(Rigidbody))]
 public class Net_SoccerBar : NetworkBehaviour
 {
+    public Action<Net_SoccerBar> Server_OnStartNetwork;
+
     private float MAX_BAR_FORCE = 1000f;
 
     public enum BarDisposition
@@ -101,26 +103,26 @@ public class Net_SoccerBar : NetworkBehaviour
 
         _rb = GetComponent<Rigidbody>();
 
-        if (IsServer)
+        // Changing max angular velocity, to get powered shots !
+        _rb.maxAngularVelocity = 16f;
+        // Resetting center of mass, so that soccer bar turns (Z axis) always from its origin
+        // (if not, added soccer player are lowering the center of mass, making rotation not bar centered)
+        _rb.centerOfMass = new Vector3(0f, 0f, 0f);
+        // If we're connecting late client, change correct side
+        if (_fieldSide != Net_SoccerField.FieldSide.None)
         {
-            // Changing max angular velocity, to get powered shots !
-            _rb.maxAngularVelocity = 16f;
-            // Resetting center of mass, so that soccer bar turns (Z axis) always from its origin
-            // (if not, added soccer player are lowering the center of mass, making rotation not bar centered)
-            _rb.centerOfMass = new Vector3(0f, 0f, 0f);
-        }
-        else
-        {
-            // If we're connecting late client, change correct side
-            if (_fieldSide != Net_SoccerField.FieldSide.None)
-            {
-                SetSide(_fieldSide);
-            }
+            SetSide(_fieldSide);
         }
 
         _lastMouseY = Input.GetAxis("Mouse Y");
         _initialZLocation = transform.position.z;
         _initialMaterial = _renderer.material;
+
+        if (IsServer)
+        {
+            Server_OnStartNetwork?.Invoke(this);
+            Debug.Log("Net_soccerBar OnStartNetworkServer!");
+        }
     }
 
     private void FieldSide_OnValueChanged(Net_SoccerField.FieldSide pPreviousValue, Net_SoccerField.FieldSide pNewValue, System.Boolean pAsServer)
@@ -131,25 +133,28 @@ public class Net_SoccerBar : NetworkBehaviour
         }
     }
 
-    // initializing bar on client side that should "own" the bar
-    // NOTE: own is not about ownership, because ownership will always be server-side.
-    // The problem with client-side is that ball server-side cannot interact properly with bar client-side
-    // Physics are in play, so hard to do. Client-side prediction was an idea, but
-    // too complicated to implement for me now, and not solving physics issues
+    // initializing bar on client side that own the bar
     [TargetRpc]
     public void InitializeClientRpc(NetworkConnection pClientConnection)
     {
-        Debug.Log("I own bar : " + base.ObjectId);
-        
-        return;
-        /*
-        NetworkObject lPlayer = NetworkManager.LocalClient.PlayerObject;
+        Debug.Log("Client - I own bar : " + base.ObjectId);
+
+        IReadOnlyCollection<NetworkObject> lOwnObjects = pClientConnection.Objects;
+        NetworkObject lPlayer = null;
+        foreach (var lOwnObject in lOwnObjects)
+        {
+            if (lOwnObject.GetComponent<Net_Player>())
+            {
+                lPlayer = lOwnObject;
+                break;
+            }
+        }
 
         // FIXME: in this section, returning is the only thing i do to prevent next of code to go in error
         // best thing to do would be to despawn the soccer bar, or wait and find him a new player owner
-        if (!lPlayer)
+        if (lPlayer == null)
         {
-            Debug.LogError("Error : no player found on player id : " + NetworkManager.LocalClientId + " which should have been owner of this bar...");
+            Debug.LogError("Error : no player found on player id : " + pClientConnection.ClientId + " which should have been owner of this bar...");
             return;
         }
 
@@ -161,7 +166,6 @@ public class Net_SoccerBar : NetworkBehaviour
         }
 
         lNetPlayer.AddSoccerBar(this);
-        */
     }
 
     public void Server_Initialize(int? pClientId = null)
@@ -181,30 +185,28 @@ public class Net_SoccerBar : NetworkBehaviour
         else
         {
             Debug.Log("I own bar : " + base.ObjectId);
-            lOwnerNetworkId = ClientManager.Connection.ClientId;
+            lOwnerNetworkId = base.Owner.ClientId;
         }
 
-        return;
-        /*
-        NetworkObject lPlayer = NetworkManager.Singleton.ConnectedClients[lOwnerNetworkId].PlayerObject;
+        Debug.Log("Owner is : " + lOwnerNetworkId + " bar owner is : " + base.Owner.ClientId + " clients- " + InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players.Count);
+        Net_Player lOwnerPlayer = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().GetPlayerById(lOwnerNetworkId);
 
         // FIXME: in this section, returning is the only thing i do to prevent next of code to go in error
         // best thing to do would be to despawn the soccer bar, or wait and find him a new player owner
-        if (!lPlayer)
+        if (!lOwnerPlayer)
         {
             Debug.LogError("Error : no player found on player id : " + lOwnerNetworkId + " which should have been owner of this bar...");
             return;
         }
 
-        Net_Player lNetPlayer = lPlayer.GetComponent<Net_Player>();
-        if (!lNetPlayer)
-        {
-            Debug.LogWarning("Error : PlayerObject found but no Net_Player.");
-            return;
-        }
+        lOwnerPlayer.AddSoccerBar(this);
+    }
 
-        lNetPlayer.AddSoccerBar(this);
-        */
+    public override void OnOwnershipServer(NetworkConnection prevOwner)
+    {
+        base.OnOwnershipServer(prevOwner);
+
+        Debug.Log("Server owner - ownerid : " + base.IsOwner);
     }
 
     public void Possess()
@@ -229,35 +231,29 @@ public class Net_SoccerBar : NetworkBehaviour
 
     void FixedUpdate()
     {
+        // Only owners can move bar
+        if (!IsOwner)
+            return;
+
         if (_isControlledByPlayer)
         {
             _mouseScrollValue = Input.GetAxis("Mouse ScrollWheel") * _fieldSideFactor;
             _mouseY = Input.GetAxis("Mouse Y") * _fieldSideFactor;
             _leftClick = Input.GetMouseButtonDown(0);
 
-            // NOTE: I have to do this, because i'm dealing with ball physics. So i can't
-            // own soccer bars on clients, because they do physics too. 
-            // Non-owning physic obj means that rigidbody is kinematic, & you can't apply forces to kinematic objects
-            if (IsServer)
-            {
-                Server_UpdateMovement(_mouseScrollValue, _mouseY, _leftClick);
+            UpdateMovement(_mouseScrollValue, _mouseY, _leftClick);
 
-                // Lower blast cooldown if needed
-                if (_blastCooldown > 0f)
-                    _blastCooldown -= Time.deltaTime;
-            }
-            else
-            {
-                Client_UpdateMovement(_mouseScrollValue, _mouseY, _leftClick);
-            }
+            // Lower blast cooldown if needed
+            if (_blastCooldown > 0f)
+                _blastCooldown -= Time.deltaTime;
         }
         else
         {
-            Server_UpdateResetRotationTimer();
+            UpdateResetRotationTimer();
         }
     }
 
-    void Server_UpdateMovement(float pScroll, float pMoveY, bool pLeftClickDown)
+    void UpdateMovement(float pScroll, float pMoveY, bool pLeftClickDown)
     {
         _resetRotationTimer = 0f;
 
@@ -323,12 +319,12 @@ public class Net_SoccerBar : NetworkBehaviour
         yield return new WaitForSeconds(0.035f);
         // After the full shot, send player back
         _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
-        yield return new WaitForSeconds(0.21f);
+        yield return new WaitForSeconds(0.18f);
         // When player is at start location, reduce its speed
         _rb.angularVelocity *= 0.1f;
     }
 
-    private void Server_UpdateResetRotationTimer()
+    private void UpdateResetRotationTimer()
     {
         // If one second passed WITHOUT any movement
         if (_resetRotationTimer > 1.0f)
@@ -363,7 +359,7 @@ public class Net_SoccerBar : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void Server_UpdateMovementServerRpc(float pScroll, float pMoveY, bool pLeftClickDown)
     {
-        Server_UpdateMovement(pScroll, pMoveY, pLeftClickDown);
+        UpdateMovement(pScroll, pMoveY, pLeftClickDown);
     }
 
     public void OnCollisionWithBall(Net_Ball pBall, Collision pCollision)

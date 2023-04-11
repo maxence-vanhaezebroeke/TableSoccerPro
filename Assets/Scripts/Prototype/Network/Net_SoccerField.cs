@@ -45,9 +45,9 @@ public class Net_SoccerField : NetworkBehaviour
     private bool _isBlueSideTaken = false;
     private bool _isRedSideTaken = false;
 
-    public override void OnStartNetwork()
+    public override void OnStartServer()
     {
-        base.OnStartNetwork();
+        base.OnStartServer();
         UtilityLibrary.ThrowIfNull(this, _blueSideTransform);
         UtilityLibrary.ThrowIfNull(this, _redSideTransform);
         UtilityLibrary.ThrowIfNull(this, _blueSideScoreText);
@@ -122,7 +122,6 @@ public class Net_SoccerField : NetworkBehaviour
         return new Vector3[] {_redCorner1.position, _redCorner2.position};
     }
 
-
     // FIXME : for now, don't need to go further
     // But if tis function is used very often, change implementation.
     public bool IsRedSide(Vector3 pPosition)
@@ -137,12 +136,14 @@ public class Net_SoccerField : NetworkBehaviour
         // First, the server will ask for his position, so we give him blue side
         if (!_isBlueSideTaken)
         {
+            Debug.Log("Side: blue");
             _isBlueSideTaken = true;
             return _blueSideTransform;
         }
         // Then, client will as for his pos, so give him red side
         else
         {
+            Debug.Log("Side: red");
             _isRedSideTaken = true;
             return _redSideTransform;
         }
