@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
@@ -136,16 +135,5 @@ public class Net_Ball : NetworkBehaviour
 
         // Raise event, so that manager will know what to do
         OnBallExitBounds.Invoke(this, pBoundCollider);
-    }
-
-    // Delete
-    void Old_BallHitBounds(Collider pBoundCollider)
-    {
-        // NOTE : not precise, but do the job for me
-        Vector3 lCollisionPoint = pBoundCollider.ClosestPoint(transform.position);
-        Vector3 lCollisionNormal = transform.position - lCollisionPoint;
-
-        // Reflect velocity and scale it down, to send ball back to the field, but with much less speed
-        _rb.velocity = Vector3.Reflect(_rb.velocity, lCollisionNormal) * 0.04f;
     }
 }

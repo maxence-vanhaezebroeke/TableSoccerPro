@@ -10,10 +10,10 @@ GameObject:
   m_Component:
   - component: {fileID: 8987786304722687923}
   - component: {fileID: 7356002453405929000}
-  - component: {fileID: 5808778127139648037}
   - component: {fileID: 4935058309669028746}
   - component: {fileID: 6601339638257668254}
   - component: {fileID: 8567643871965846363}
+  - component: {fileID: 2529421906270705231}
   m_Layer: 0
   m_Name: FNet_Ball
   m_TagString: Untagged
@@ -53,8 +53,8 @@ MonoBehaviour:
   <ComponentIndex>k__BackingField: 0
   <PredictedSpawn>k__BackingField: {fileID: 0}
   _networkBehaviours:
-  - {fileID: 5808778127139648037}
   - {fileID: 6601339638257668254}
+  - {fileID: 2529421906270705231}
   <ParentNetworkObject>k__BackingField: {fileID: 0}
   <ChildNetworkObjects>k__BackingField: []
   _isNetworked: 1
@@ -68,48 +68,6 @@ MonoBehaviour:
   <SceneId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 1588774795893859608
   _sceneNetworkObjects: []
---- !u!114 &5808778127139648037
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4957948856634114571}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 402926ef33e0a894d9fec352693988ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _componentIndexCache: 0
-  _addedNetworkObject: {fileID: 7356002453405929000}
-  _networkObjectCache: {fileID: 7356002453405929000}
-  _implementsPredictionMethods: 1
-  _graphicalObject: {fileID: 7158932835509402270}
-  _enableTeleport: 0
-  _teleportThreshold: 1
-  _ownerSmoothPosition: 1
-  _ownerSmoothRotation: 1
-  _ownerInterpolation: 1
-  _predictionType: 1
-  _rigidbody: {fileID: 4935058309669028746}
-  _rigidbody2d: {fileID: 0}
-  _spectatorSmoothPosition: 1
-  _spectatorSmoothRotation: 1
-  _spectatorSmoothingType: 1
-  _customSmoothingData:
-    InterpolationPercent: 1
-    CollisionInterpolationPercent: 0.1
-    InterpolationDecreaseStep: 1
-    InterpolationIncreaseStep: 3
-  _preconfiguredSmoothingDataPreview:
-    InterpolationPercent: 1
-    CollisionInterpolationPercent: 0.1
-    InterpolationDecreaseStep: 1
-    InterpolationIncreaseStep: 3
-  _maintainedVelocity: 0
-  _resendType: 0
-  _resendInterval: 30
-  _networkTransform: {fileID: 0}
 --- !u!54 &4935058309669028746
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -138,7 +96,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01d48581291c6dd4cac7e66aa55855c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _componentIndexCache: 1
+  _componentIndexCache: 0
   _addedNetworkObject: {fileID: 7356002453405929000}
   _networkObjectCache: {fileID: 7356002453405929000}
   _ballSkins: []
@@ -155,6 +113,48 @@ SphereCollider:
   serializedVersion: 2
   m_Radius: 0.11
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &2529421906270705231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4957948856634114571}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2836e36774ca1c4bbbee976e17b649c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _componentIndexCache: 1
+  _addedNetworkObject: {fileID: 7356002453405929000}
+  _networkObjectCache: {fileID: 7356002453405929000}
+  _componentConfiguration: 2
+  _synchronizeParent: 0
+  _packing:
+    Position: 1
+    Rotation: 1
+    Scale: 0
+  _interpolation: 2
+  _extrapolation: 2
+  _enableTeleport: 0
+  _teleportThreshold: 1
+  _clientAuthoritative: 1
+  _sendToOwner: 1
+  _synchronizePosition: 1
+  _positionSnapping:
+    X: 0
+    Y: 0
+    Z: 0
+  _synchronizeRotation: 1
+  _rotationSnapping:
+    X: 0
+    Y: 0
+    Z: 0
+  _synchronizeScale: 1
+  _scaleSnapping:
+    X: 0
+    Y: 0
+    Z: 0
 --- !u!1001 &7154016286963810392
 PrefabInstance:
   m_ObjectHideFlags: 0
