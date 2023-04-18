@@ -9,7 +9,7 @@ public class FNet_PlayerManager : MonoBehaviour
     [SerializeField]
     private Net_Player _playerPrefab;
 
-    public static List<Net_Player> _spawnedPlayers;
+    private static List<Net_Player> _spawnedPlayers;
     public List<Net_Player> Players
     {
         get
@@ -35,15 +35,12 @@ public class FNet_PlayerManager : MonoBehaviour
             return;
 
         Net_Player lPlayer = Instantiate(_playerPrefab, Vector3.zero, _playerPrefab.transform.rotation);
-        OnPlayerSpawn(lPlayer);
+        Server_OnPlayerSpawn(lPlayer);
         _networkManager.ServerManager.Spawn(lPlayer.gameObject, pNConnection);
-
-        //_networkManager.SceneManager.AddOwnerToDefaultScene(lPlayer.NetworkObject);
     }
 
-    private void OnPlayerSpawn(Net_Player pPlayer)
+    private void Server_OnPlayerSpawn(Net_Player pPlayer)
     {
-        Debug.Log("Player spawned!");
         if (pPlayer)
         {
             pPlayer.OnPlayerDespawn += OnPlayerDespawn;
@@ -51,13 +48,13 @@ public class FNet_PlayerManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("Player spawner shouldn't be spawning anything else than Net_Player.");
+            Debug.LogError("Player spawned but is already null... His existence lasted less than a frame...");
         }
     }
 
     public Net_Player GetPlayerById(int pId)
     {
-        return _spawnedPlayers.Find(x => x.NetworkObject.OwnerId == pId);
+        return _spawnedPlayers.Find(x => x.OwnerId == pId);
     }
 
     private void OnPlayerDespawn(Net_Player pPlayer)
@@ -69,8 +66,6 @@ public class FNet_PlayerManager : MonoBehaviour
     private void OnDestroy()
     {
         if (_networkManager && _networkManager.SceneManager)
-        {
             _networkManager.SceneManager.OnClientLoadedStartScenes -= OnClientLoadedStartScene;
-        }
     }
 }

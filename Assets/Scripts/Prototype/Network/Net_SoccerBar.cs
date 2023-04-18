@@ -12,8 +12,6 @@ using FishNet.Transporting;
 [RequireComponent(typeof(Rigidbody))]
 public class Net_SoccerBar : NetworkBehaviour
 {
-    public Action<Net_SoccerBar> Server_OnStartNetwork;
-
     private readonly float MAX_BAR_FORCE = 1000f;
 
     public enum BarDisposition
@@ -134,9 +132,11 @@ public class Net_SoccerBar : NetworkBehaviour
     private bool _movementQueued = false;
     private bool _isPowerShotQueued = false;
     private bool _resetVelocity = false;
-
     private Vector3 _addedForceQueued;
     private Vector3 _addedTorqueQueued;
+
+    // Used to know when coroutine for powershots is active
+    private bool _isPowerShotActive;
 
     #endregion
 
@@ -144,8 +144,11 @@ public class Net_SoccerBar : NetworkBehaviour
     public override void OnStartNetwork()
     {
         base.OnStartNetwork();
-        base.TimeManager.OnTick += TimeManager_OnTick;
-        base.TimeManager.OnPostTick += TimeManager_OnPostTick;
+        if (base.TimeManager)
+        {
+            base.TimeManager.OnTick += TimeManager_OnTick;
+            base.TimeManager.OnPostTick += TimeManager_OnPostTick;
+        }
 
         _rb = GetComponent<Rigidbody>();
 
@@ -163,12 +166,6 @@ public class Net_SoccerBar : NetworkBehaviour
         _lastMouseY = Input.GetAxis("Mouse Y");
         _initialZLocation = transform.position.z;
         _initialMaterial = _renderer.material;
-
-        if (IsServer)
-        {
-            Server_OnStartNetwork?.Invoke(this);
-            Debug.Log("Net_soccerBar OnStartNetworkServer!");
-        }
     }
 
     public override void OnStopNetwork()
@@ -176,8 +173,8 @@ public class Net_SoccerBar : NetworkBehaviour
         base.OnStopNetwork();
         if (base.TimeManager)
         {
-            base.TimeManager.OnTick += TimeManager_OnTick;
-            base.TimeManager.OnPostTick += TimeManager_OnPostTick;
+            base.TimeManager.OnTick -= TimeManager_OnTick;
+            base.TimeManager.OnPostTick -= TimeManager_OnPostTick;
         }
     }
 
@@ -199,6 +196,12 @@ public class Net_SoccerBar : NetworkBehaviour
     [Reconcile]
     private void Reconcile(ReconcileData pRD, bool pAsServer, Channel channel = Channel.Reliable)
     {
+        // Power shot is a complex physics operation, where forces are applied in very small amount of time.
+        // Reconcile cannot be done during this time, otherwise client will always be desync with servers, even though
+        // his prediction will be correct. So, wait for powershot, then reconcile everything after.
+        if (_isPowerShotActive)
+            return;
+        
         transform.position = pRD.Position;
         transform.rotation = pRD.Rotation;
         _rb.velocity = pRD.Velocity;
@@ -238,6 +241,7 @@ public class Net_SoccerBar : NetworkBehaviour
         }
         else if (pMoveData.AddedForce != Vector3.zero)
         {
+            // TODO: I think I have to check for bounds here. No need to add acceleration if rigidbody is going out of bounds.
             _rb.AddForce(pMoveData.AddedForce, ForceMode.Acceleration);
         }
 
@@ -311,15 +315,13 @@ public class Net_SoccerBar : NetworkBehaviour
     public void Server_Initialize(int? pClientId = null)
     {
         if (!IsServer)
-        {
             return;
-        }
 
         int lOwnerNetworkId;
 
         if (pClientId != null)
         {
-            Debug.Log("Client : " + pClientId + " own bar : " + base.ObjectId);
+            Debug.Log("Client : " + pClientId + " owns bar : " + base.ObjectId);
             lOwnerNetworkId = pClientId.Value;
         }
         else
@@ -328,10 +330,9 @@ public class Net_SoccerBar : NetworkBehaviour
             lOwnerNetworkId = base.Owner.ClientId;
         }
 
-        Debug.Log("Owner is : " + lOwnerNetworkId + " bar owner is : " + base.Owner.ClientId + " clients- " + InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players.Count);
         Net_Player lOwnerPlayer = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().GetPlayerById(lOwnerNetworkId);
 
-        // FIXME: in this section, returning is the only thing i do to prevent next of code to go in error
+        // FIXME: in this section, returning is the only thing I do to prevent next of code to go in error
         // best thing to do would be to despawn the soccer bar, or wait and find him a new player owner
         if (!lOwnerPlayer)
         {
@@ -340,13 +341,6 @@ public class Net_SoccerBar : NetworkBehaviour
         }
 
         lOwnerPlayer.AddSoccerBar(this);
-    }
-
-    public override void OnOwnershipServer(NetworkConnection prevOwner)
-    {
-        base.OnOwnershipServer(prevOwner);
-
-        Debug.Log("Server owner - ownerid : " + base.IsOwner);
     }
 
     public void Possess()
@@ -410,6 +404,7 @@ public class Net_SoccerBar : NetworkBehaviour
         // Predict next z position, to see if it's gonna be out of bounds
         // NOTE: this prediction is not calculating WITH applied force that we would do at the end
         // so it should be inaccurate (but still do the job in our case)
+        // FIXME: it's not working!
         float lNextZValue = transform.position.z + _rb.velocity.z * Time.fixedDeltaTime;
         if (lNextZValue > _initialZLocation + _zBound)
         {
@@ -431,7 +426,7 @@ public class Net_SoccerBar : NetworkBehaviour
 
             // if we scrolled in opposite direction as current velocity, make force count more 
             if (Mathf.Sign(lMouseScrollFactor) != Mathf.Sign(_rb.angularVelocity.z))
-                lZRotation *= 1.5f;
+                lZRotation *= 1.25f;
 
             _addedTorqueQueued = new Vector3(0f, 0f, lZRotation);
         }
@@ -449,6 +444,7 @@ public class Net_SoccerBar : NetworkBehaviour
     // Called right after player makes a powershot
     private IEnumerator AfterPowerShot()
     {
+        _isPowerShotActive = true;
         // First, wait a bit
         yield return new WaitForSeconds(0.04f);
         // Apply force again, so that power is still at max speed !
@@ -456,9 +452,10 @@ public class Net_SoccerBar : NetworkBehaviour
         yield return new WaitForSeconds(0.035f);
         // After the full shot, send player back
         _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
-        yield return new WaitForSeconds(0.175f);
+        yield return new WaitForSeconds(0.16f);
         // When player is at start location, reduce its speed
         _rb.angularVelocity *= 0.1f;
+        _isPowerShotActive = false;
     }
 
     private void UpdateResetRotationTimer()
@@ -486,20 +483,6 @@ public class Net_SoccerBar : NetworkBehaviour
         }
     }
 
-    // NOTE: only thing I can do here is send scroll and mouse movement value to server
-    // I'm using NetworkTransform, which doesn't allow me to move it before server does it and confirm move
-    // (which will cause lags on player movement, I know, but I'm doing with what I can do for now)
-    private void Client_UpdateMovement(float pScroll, float pMoveY, bool pLeftClickDown)
-    {
-        Server_UpdateMovementServerRpc(pScroll, pMoveY, pLeftClickDown);
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void Server_UpdateMovementServerRpc(float pScroll, float pMoveY, bool pLeftClickDown)
-    {
-        UpdateMovement(pScroll, pMoveY, pLeftClickDown);
-    }
-
     public void OnCollisionWithBall(Net_Ball pBall, Collision pCollision)
     {
         Rigidbody lBallRigidbody = pBall.gameObject.GetComponent<Rigidbody>();
@@ -521,6 +504,7 @@ public class Net_SoccerBar : NetworkBehaviour
         lForceValue.y = 0f;
         lForceValue.z = lReflectedBallDirection.z * _speedHitBoost * lBarForce - lReducedYForce;
 
+        // FIXME: ball is going in crazy directions sometimes... Reflected vector is maybe not in the direction I expected
         Debug.Log("AngVelZ- " + _rb.angularVelocity.z + " -vel- " + _rb.velocity.z + " -speedForce- " + lBarForce + " -reducedYForce- " + lReducedYForce);
         // if force value is high enough in one of our directions
         if (lBarForce > 1.2f)
@@ -564,7 +548,7 @@ public class Net_SoccerBar : NetworkBehaviour
         Instantiate(_blastPrefab, pLocation, _blastPrefab.transform.rotation);
     }
 
-    public int NumberOfPlayer()
+    public int NumberOfPlayers()
     {
         switch (_barDisposition)
         {

@@ -1,12 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
 using FishNet;
 using FishNet.Connection;
-using FishNet.Managing;
 using UnityEngine;
 
 public class Net_GameManager : MonoBehaviour
 {
+    // Singleton class
+    public static Net_GameManager Instance { get; private set; }
+
     #region Soccer bars prefab
 
     [SerializeField]
@@ -29,22 +29,29 @@ public class Net_GameManager : MonoBehaviour
     private Net_Ball _soccerBallPrefab;
 
     [SerializeField]
-    [Tooltip("Determines the center point of the soccer, from which bars, players and ball will spawn & play.")]
+    [Tooltip("Determines the middle point of the field, from which bars, players and ball will spawn & play.")]
     private Vector3 _fieldLocation;
 
     [SerializeField]
+    // TODO: This is serialized, because this is made to change ! Implement 4 players
+    [Tooltip("Number of players to play at this game. For now, works only with 2 players")]
     private int _numberOfPlayers;
+
+    public int NumberOfPlayers
+    {
+        get => _numberOfPlayers;
+    }
 
     private Net_SoccerField _soccerField;
     private Net_Ball _soccerBall;
 
-    // To initialize objects, i must use a Vector3 as location
-    // To avoid doing new Vector3() every time, i store it in here. (so this is a "garbage" variable)
+    // To initialize objects, I must use a Vector3 as location
+    // To avoid doing new Vector3() every time, I store it in here.
     private Vector3 _initializeLocation;
 
     // Corners are meshes that avoid ball being stuck. We don't want to return this location as ball would be in the ground
     // So apply an offset to give proper corner location for ball
-    private Vector3 lBallCornerOffset = new Vector3(.075f, .1f, .075f); 
+    private Vector3 lBallCornerOffset = new Vector3(.075f, .1f, .075f);
 
     // NOTE : Functions are in majority starting with Server_
     // because gamemanager only has meaning on the server ! (to deal with game)
@@ -53,6 +60,12 @@ public class Net_GameManager : MonoBehaviour
 
     void Awake()
     {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+
+
         UtilityLibrary.ThrowIfNull(this, _onePlayerSoccerBarPrefab);
         UtilityLibrary.ThrowIfNull(this, _twoPlayerSoccerBarPrefab);
         UtilityLibrary.ThrowIfNull(this, _threePlayerSoccerBarPrefab);
@@ -74,11 +87,6 @@ public class Net_GameManager : MonoBehaviour
                 Debug.LogWarning("Game will never start - number of bars required is not good. Did you filled the number of player in Net_GameManager correctly? ");
                 return -1;
         }
-    }
-
-    public int NumberOfPlayers()
-    {
-        return _numberOfPlayers;
     }
 
     public bool IsRedFieldSide(Vector3 pPosition)
@@ -106,9 +114,9 @@ public class Net_GameManager : MonoBehaviour
             Debug.Log("Soccer field already spawned - returning...");
             return;
         }
+
         _soccerField = Instantiate(_soccerFieldPrefab, _fieldLocation, _soccerFieldPrefab.transform.rotation);
         InstanceFinder.ServerManager.Spawn(_soccerField.gameObject);
-        //_soccerField.GetComponent<NetworkObject>().Spawn();
     }
 
     // Without args : server spawn
@@ -131,6 +139,8 @@ public class Net_GameManager : MonoBehaviour
     {
         // TODO : this assumes server is blue side, and player is red side
         // but currently side is randomly set. Take this in account !
+
+        // NOTE: as the game is playing in host-mode, spawning "servers soccer bar" means that we're spawning bars for host
         NetworkConnection lPlayerConnection = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players[0].LocalConnection;
 
         // First, left goalkeeper
@@ -163,12 +173,6 @@ public class Net_GameManager : MonoBehaviour
         InstanceFinder.ServerManager.Spawn(lSB.gameObject, lPlayerConnection);
         lSB.Server_Initialize(lPlayerConnection.ClientId);
         //lSB.InitializeClientRpc(lPlayerConnection);
-    }
-
-    private void SB_OnStartNetwork(Net_SoccerBar pSoccerBar)
-    {
-        pSoccerBar.Server_OnStartNetwork -= SB_OnStartNetwork;
-        pSoccerBar.Server_Initialize();
     }
 
     private void Server_InstantiateClientSoccerBars(NetworkConnection pClient)
@@ -277,7 +281,7 @@ public class Net_GameManager : MonoBehaviour
             lChosenCornerPosition = UtilityLibrary.SmallestDistancePosition(pPosition, lChosenCornerPosition, lRedCorner);
         }
         // lChosenCornerPosition is now the nearest corner from the ball, between every blue & red corners
-        
+
         // We need to add ball offset correctly : if a corner coordinate is negative, just add more negative
         // (as we don't want the ball to always go positive axis, because it will be good for one and just be mid-field for second)
         lChosenCornerPosition.x += lChosenCornerPosition.x < 0 ? -lBallCornerOffset.x : lBallCornerOffset.x;

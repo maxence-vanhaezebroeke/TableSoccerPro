@@ -12,11 +12,11 @@ public static class UtilityLibrary
                 + "Please reference this variable in the corresponding prefab. Should be in script : "
                 + pObject
                 + "</b></color>");
-            throw new System.ArgumentNullException("pVariable");
+            throw new System.ArgumentNullException("Serialized variable is null.");
         }
     }
 
-    // Returns pLocation1 if distance between pLocation1,position and pLocation2,position is the smallest. Return pLocation2 otherwise
+    // Returns pLocation1 if distance between pLocation1,position and pLocation2,position is the smallest, else return pLocation2
     public static Vector3 SmallestDistancePosition(Vector3 pPosition, Vector3 pLocation1, Vector3 pLocation2)
     {
         return Vector3.Distance(pPosition, pLocation1) < Vector3.Distance(pPosition, pLocation2) ? pLocation1 : pLocation2;

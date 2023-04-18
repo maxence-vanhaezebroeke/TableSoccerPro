@@ -8,6 +8,7 @@ using System;
 using FishNet.Transporting.Multipass;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
+using System.Linq;
 
 public class Net_Player : NetworkBehaviour
 {
@@ -24,11 +25,6 @@ public class Net_Player : NetworkBehaviour
     // Reference to GameManager. This variable should be null for clients
     // (game manager is only relevant on server)
     private Net_GameManager _gameManager;
-
-    // Reference to main menu - so we can set it active as soon as network disconnects
-    // TODO: maybe main menu should be in another scene? would be easier i think
-    private MainMenu _mainMenu;
-    private Camera _mainMenuCamera;
 
     // Becomes true when player gets enough bar required to play
     //private NetworkVariable<bool> _isPlayerReady = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -58,23 +54,10 @@ public class Net_Player : NetworkBehaviour
     {
         base.OnStartNetwork();
 
-        GameObject lGO = GameObject.Find("Net_GameManagerPrefab");
-        if (lGO)
-        {
-            if (IsServer)
-            {
-                _gameManager = lGO.GetComponent<Net_GameManager>();
-            }
-        }
-        else
-        {
-            Debug.LogError("ERROR : At player spawn, game manager should be found. It is not !");
-        }
-
         // If we are the only owner of this object
         if (base.Owner.IsLocalClient)
         {
-            All_OnFirstStart();
+            OnPlayerFirstStart();
         }
     }
 
@@ -84,7 +67,6 @@ public class Net_Player : NetworkBehaviour
 
         if (IsOwner)
         {
-            DisplayMenu();
             DestroyControls();
         }
     }
@@ -117,20 +99,12 @@ public class Net_Player : NetworkBehaviour
 
         if (IsServer)
         {
-            // If player is red side, give him proper changements
+            // Set player side
             if (_gameManager.IsRedFieldSide(transform.position))
-            {
-                // Server will set him red side
                 Server_SetRedSide();
-            }
             else
-            {
                 Server_SetBlueSide();
-            }
-        }
 
-        if (IsServer)
-        {
             // Checking for every player to be ready
             if (Server_CanEveryPlayerStartGame())
             {
@@ -154,7 +128,6 @@ public class Net_Player : NetworkBehaviour
             return;
 
         Transform lFieldSide = _gameManager.GetRandomFieldSide();
-        // TODO: is it working?
         All_SetClientSide(lFieldSide.position, lFieldSide.rotation);
     }
 
@@ -183,6 +156,7 @@ public class Net_Player : NetworkBehaviour
             Debug.Log("User signed in for multiplayer game - as server, I should retrieve JoinCode!");
         }
 
+        Server_InitializeGameManager();
         // Server spawns soccer field
         _gameManager.Server_InstantiateField();
 
@@ -193,6 +167,19 @@ public class Net_Player : NetworkBehaviour
     {
         base.OnDespawnServer(connection);
         OnPlayerDespawn?.Invoke(this);
+    }
+
+    private void Server_InitializeGameManager()
+    {
+        if (!IsServer)
+            return;
+
+        if (!Net_GameManager.Instance)
+        {
+            Debug.LogError("Net Game Manager not instantiated - it should be as singleton. Is it on the scene?");
+            return;
+        }
+        _gameManager = Net_GameManager.Instance;
     }
 
     // Function called on owning client, as it spawns his net_player from the server
@@ -212,13 +199,15 @@ public class Net_Player : NetworkBehaviour
 
         if (IsServer)
         {
+            Server_InitializeGameManager();
+
             // Initialize ball and field
             Server_OnOwningStart();
 
             // Place server random side of the field
             Server_TeleportRandomFieldSide();
 
-            // Server spawns its own bar
+            // Server spawns its own bars
             Server_SpawnOwnSoccerBar();
         }
         else
@@ -231,61 +220,18 @@ public class Net_Player : NetworkBehaviour
     // Function called ONE TIME only, when they typically join the game
     // Used to do similar server AND client things, before online game starts !
     // such as remove local thing and start for full network experience
-    void All_OnFirstStart()
+    void OnPlayerFirstStart()
     {
-        HideMenu();
         ShowControls();
 
-        // Switching from menu to player camera
         if (!_playerCamera)
         {
             Debug.LogWarning("Please reference the camera in the Net_Player !");
             return;
         }
 
-        // Disable main menu camera, and activate the player one
-        Camera lMainMenuCamera = Camera.main;
-        if (lMainMenuCamera)
-        {
-            // reference it, if we want to come back to menu later
-            _mainMenuCamera = lMainMenuCamera;
-            lMainMenuCamera.gameObject.SetActive(false);
-        }
-
+        // TODO: what if it's already active in the prefab?
         _playerCamera.gameObject.SetActive(true);
-    }
-
-    // hide main menu & main menu background
-    // Hide only if field "Joining code" in main menu is empty (i.e. everything but when we started as multiplayer host)
-    // or if we fill the boolean parameter to true
-    private void HideMenu(bool pForceHideEverything = false)
-    {
-        GameObject lMainMenuGO = GameObject.Find("MainMenu");
-        if (lMainMenuGO)
-        {
-            MainMenu lMainMenu = lMainMenuGO.GetComponent<MainMenu>();
-            // if we find the menu
-            if (lMainMenu)
-            {
-                // reference it - if we want to come back to it later
-                _mainMenu = lMainMenu;
-                // If main menu contain joining code
-                if (lMainMenu.HasJoiningCode())
-                {
-                    // Only hide if we force it !
-                    if (pForceHideEverything)
-                    {
-                        lMainMenuGO.SetActive(false);
-                    }
-                    // else, keep menu active, to show joining code!
-                }
-                else
-                {
-                    // No joining code - hide everything
-                    lMainMenuGO.SetActive(false);
-                }
-            }
-        }
     }
 
     private void ShowControls()
@@ -306,22 +252,12 @@ public class Net_Player : NetworkBehaviour
             Destroy(_playerControls);
     }
 
-    private void DisplayMenu()
-    {
-        if (_mainMenu && _mainMenuCamera)
-        {
-            _mainMenu.gameObject.SetActive(true);
-            _mainMenuCamera.gameObject.SetActive(true);
-
-            // Sets cursor visible again
-            SetCursorVisibility(true);
-        }
-    }
-
     // Triggered server-side when the player is spawned, and the server is not the owner 
     private void Server_OnNonOwningStart()
     {
         Debug.Log("Server_OnNonOwningStart");
+        Server_InitializeGameManager();
+
         Server_TeleportRandomFieldSide();
     }
 
@@ -338,7 +274,7 @@ public class Net_Player : NetworkBehaviour
         List<Net_Player> lPlayers = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players;
 
         // First, we're checking if the number of player is good enough
-        if (lPlayers.Count < _gameManager.NumberOfPlayers())
+        if (lPlayers.Count < _gameManager.NumberOfPlayers)
         {
             Debug.Log("Not enough player connected - waiting for more...");
             return false;
@@ -362,7 +298,7 @@ public class Net_Player : NetworkBehaviour
             }
         }
 
-        if (lPlayers.Count - lIgnoredPlayer < _gameManager.NumberOfPlayers())
+        if (lPlayers.Count - lIgnoredPlayer < _gameManager.NumberOfPlayers)
         {
             Debug.Log("Not enough lNetPlayer connected - waiting for more...");
             return false;
@@ -397,7 +333,7 @@ public class Net_Player : NetworkBehaviour
             + pSoccerBar.GetComponent<NetworkObject>().ObjectId
             + " of owner : "
             + GetComponent<NetworkObject>().OwnerId
-            + " - Soccer bar has : " + pSoccerBar.NumberOfPlayer() + " players.");
+            + " - Soccer bar has : " + pSoccerBar.NumberOfPlayers() + " players.");
 
         _soccerBars.Add(pSoccerBar);
 
@@ -460,10 +396,7 @@ public class Net_Player : NetworkBehaviour
     void Server_OnSoccerBarAdded()
     {
         if (!IsServer)
-        {
-            Debug.LogError("Is not server - shouldn't be here.");
             return;
-        }
 
         // Server checks if he's ready
         if (CanStartGame(_gameManager.NumberOfBarsRequired()))
@@ -479,8 +412,8 @@ public class Net_Player : NetworkBehaviour
 
     void Server_StartGame()
     {
-        // FORCE hidding menu, if it's not fully done
-        HideMenu(true);
+        if (!IsServer)
+            return;
 
         // Start game for every connected Net_Player !
         List<Net_Player> lPlayers = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players;
@@ -489,18 +422,15 @@ public class Net_Player : NetworkBehaviour
             if (lPlayer)
             {
                 // Start match for this player
-                lPlayer.Server_GameHasStarted();
+                lPlayer.Server_OnGameStart();
             }
         }
     }
 
-    private void Server_GameHasStarted()
+    private void Server_OnGameStart()
     {
         if (!IsServer)
-        {
-            Debug.LogWarning("Calling server function on a non-server instance. Returning...");
             return;
-        }
 
         // Starting a game means that maybe players were waiting for other players, so they played
         // We need to reset game for everyone to play from 0!
@@ -524,10 +454,7 @@ public class Net_Player : NetworkBehaviour
     private void Server_SetRedSide()
     {
         if (!IsServer)
-        {
-            Debug.LogWarning("Calling server function on a non-server instance. Returning...");
             return;
-        }
 
         foreach (Net_SoccerBar lSoccerBar in _soccerBars)
         {
@@ -551,10 +478,7 @@ public class Net_Player : NetworkBehaviour
     void Server_PossessStartingBar()
     {
         if (!IsServer)
-        {
-            Debug.LogWarning("Server function called on a non-server instance.");
             return;
-        }
 
         List<Net_Player> lPlayers = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players;
         // Foreach connected clients (including server)
@@ -582,7 +506,7 @@ public class Net_Player : NetworkBehaviour
                 // With 4 bars, player SHOULD have a 5 player bar
                 for (int lSoccerBarIndex = 0; lSoccerBarIndex < _soccerBars.Count; lSoccerBarIndex++)
                 {
-                    if (_soccerBars[lSoccerBarIndex].NumberOfPlayer() == 5)
+                    if (_soccerBars[lSoccerBarIndex].NumberOfPlayers() == 5)
                     {
                         _soccerBars[lSoccerBarIndex].Possess();
                         _controlledSoccerBarIndex = lSoccerBarIndex;
@@ -609,10 +533,7 @@ public class Net_Player : NetworkBehaviour
     void Server_SpawnOwnSoccerBar()
     {
         if (!IsServer)
-        {
-            Debug.LogError("Is not server - shouldn't be here.");
             return;
-        }
 
         _gameManager.Server_InstantiateSoccerBar();
     }
@@ -622,9 +543,7 @@ public class Net_Player : NetworkBehaviour
     {
         // If we're not owner, don't go further
         if (!IsOwner)
-        {
             return;
-        }
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
@@ -639,8 +558,6 @@ public class Net_Player : NetworkBehaviour
             }
             else
                 InstanceFinder.ClientManager.StopConnection();
-
-            //DisplayMenu();
         }
 
         // If player is not ready, nothing to do for now
@@ -697,13 +614,10 @@ public class Net_Player : NetworkBehaviour
     private void TrySwitchSoccerBar(int pIndex)
     {
         // if we tried accessing a non-valid index, returning
-        if (_soccerBars.Count <= pIndex)
-        {
+        if (_soccerBars.Count <= pIndex || pIndex < 0)
             return;
-        }
 
-        SwitchSoccerBar(_controlledSoccerBarIndex, pIndex);
-        _controlledSoccerBarIndex = pIndex;
+        SwitchToSoccerBar(pIndex);
     }
 
     // If player is not controlling the most left bar, he can control another more left bar
@@ -711,22 +625,20 @@ public class Net_Player : NetworkBehaviour
     private void TrySwitchSoccerBar(bool pIsLeft)
     {
         int lDirection = pIsLeft ? -1 : 1;
-        int lOldControlledSoccerBarIndex = _controlledSoccerBarIndex;
         // Checking if soccerbar can change direction
         // Inclusively [0, _soccerBars.Count]
         if (_controlledSoccerBarIndex + lDirection >= 0 && _controlledSoccerBarIndex + lDirection < _soccerBars.Count)
         {
-            // Yes we can ! do it
-            _controlledSoccerBarIndex += lDirection;
-            SwitchSoccerBar(lOldControlledSoccerBarIndex, _controlledSoccerBarIndex);
+            SwitchToSoccerBar(_controlledSoccerBarIndex + lDirection);
         }
     }
 
     // Switching soccer bar
-    private void SwitchSoccerBar(int pOldControlledSoccerBarIndex, int pNewControlledSoccerBarIndex)
+    private void SwitchToSoccerBar(int pNewControlledSoccerBarIndex)
     {
-        _soccerBars[pOldControlledSoccerBarIndex].Unpossess();
+        _soccerBars[_controlledSoccerBarIndex].Unpossess();
         _soccerBars[pNewControlledSoccerBarIndex].Possess();
+        _controlledSoccerBarIndex = pNewControlledSoccerBarIndex;
     }
 
     // ----- Ordering soccer bars
@@ -752,12 +664,11 @@ public class Net_Player : NetworkBehaviour
 
     private List<Net_SoccerBar> OrderSizeTwoSoccerBars(List<Net_SoccerBar> pSoccerBars)
     {
-
         // If player has a 5 player bar, he's attacking
-        if (pSoccerBars[0].NumberOfPlayer() == 5 || pSoccerBars[1].NumberOfPlayer() == 5)
+        if (pSoccerBars[0].NumberOfPlayers() == 5 || pSoccerBars[1].NumberOfPlayers() == 5)
         {
             // If player is attacking and first bar isn't 5 player, it's not ordered
-            if (pSoccerBars[0].NumberOfPlayer() != 5)
+            if (pSoccerBars[0].NumberOfPlayers() != 5)
             {
                 // Swap elements
                 UtilityLibrary.Swap<Net_SoccerBar>(pSoccerBars, 0, 1);
@@ -766,53 +677,28 @@ public class Net_Player : NetworkBehaviour
         else
         {
             // If player is defending and first bar isn't goalkeeper, it's not ordered
-            if (pSoccerBars[0].NumberOfPlayer() != 1)
+            if (pSoccerBars[0].NumberOfPlayers() != 1)
             {
                 UtilityLibrary.Swap<Net_SoccerBar>(pSoccerBars, 0, 1);
             }
         }
 
-        // List should be ordered
+        // Ordered list
         return pSoccerBars;
     }
 
     private List<Net_SoccerBar> OrderSizeFourSoccerBars(List<Net_SoccerBar> pSoccerBars)
     {
-        int[] lOrderedIndexes = new int[4];
-        for (int lBarIndex = 0; lBarIndex < pSoccerBars.Count; lBarIndex++)
-        {
-            Net_SoccerBar lSoccerBar = pSoccerBars[lBarIndex];
-            int lSoccerBarNumberOfPlayer = lSoccerBar.NumberOfPlayer();
-
-            switch (lSoccerBarNumberOfPlayer)
-            {
-                case 1:
-                    lOrderedIndexes[0] = lBarIndex;
-                    break;
-                case 2:
-                    lOrderedIndexes[1] = lBarIndex;
-                    break;
-                case 3:
-                    lOrderedIndexes[3] = lBarIndex;
-                    break;
-                case 5:
-                    lOrderedIndexes[2] = lBarIndex;
-                    break;
-            }
-        }
-
-        // [0 : 3]
-        for (int i = 0; i < 4; i++)
-        {
-            // If lOrderedIndexes is not [0, 1, 2, 3] (same as this loop)
-            if (lOrderedIndexes[i] != i)
-            {
-                // Swap is needed
-                UtilityLibrary.Swap<Net_SoccerBar>(pSoccerBars, i, lOrderedIndexes[i]);
-            }
-        }
-
-        return pSoccerBars;
+        // Size four soccer bar disposition is [1, 2, 5, 3] (based on number of players) : 
+        // - Goalkeeper (1 player)
+        // - Defenders (2 players)
+        // - Halves (5 players)
+        // - Attackers (3 players)
+        // So first, order list by ascending number of player [1, 2, 3, 5]
+        List<Net_SoccerBar> lOrderedList = pSoccerBars.OrderBy(bar => bar.NumberOfPlayers()).ToList();
+        // Then swap two lasts bars, to get [1, 2, 5, 3]
+        UtilityLibrary.Swap<Net_SoccerBar>(lOrderedList, 3, 2);
+        return lOrderedList;
     }
 
     // -----
