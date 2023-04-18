@@ -4,8 +4,10 @@ using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using FishNet.Connection;
 using FishNet;
-using FishNet.Component.Spawning;
 using System;
+using FishNet.Transporting.Multipass;
+using Unity.Services.Authentication;
+using Unity.Services.Core;
 
 public class Net_Player : NetworkBehaviour
 {
@@ -62,10 +64,6 @@ public class Net_Player : NetworkBehaviour
             if (IsServer)
             {
                 _gameManager = lGO.GetComponent<Net_GameManager>();
-            }
-            else
-            {
-                // Destroy(lGO);
             }
         }
         else
@@ -175,6 +173,16 @@ public class Net_Player : NetworkBehaviour
     {
         Debug.Log("<color=#00000><i>On server owning start</i></color>");
 
+        if (UnityServices.State == ServicesInitializationState.Uninitialized)
+        {
+            Debug.Log("Uninitialized");
+        }
+
+        if (UnityServices.State == ServicesInitializationState.Initialized && AuthenticationService.Instance.IsSignedIn)
+        {
+            Debug.Log("User signed in for multiplayer game - as server, I should retrieve JoinCode!");
+        }
+
         // Server spawns soccer field
         _gameManager.Server_InstantiateField();
 
@@ -241,10 +249,10 @@ public class Net_Player : NetworkBehaviour
         {
             // reference it, if we want to come back to menu later
             _mainMenuCamera = lMainMenuCamera;
-
             lMainMenuCamera.gameObject.SetActive(false);
-            _playerCamera.gameObject.SetActive(true);
         }
+
+        _playerCamera.gameObject.SetActive(true);
     }
 
     // hide main menu & main menu background
@@ -622,10 +630,17 @@ public class Net_Player : NetworkBehaviour
         {
             Debug.Log("Shutting down...");
             if (IsServer)
-                NetworkManager.ServerManager.StopConnection(true);
+            {
+                InstanceFinder.ClientManager.StopConnection();
+                // Stopping Tugboat
+                InstanceFinder.TransportManager.GetTransport<Multipass>().StopConnection(true, 0);
+                // Stopping FishyUnityTransport
+                InstanceFinder.TransportManager.GetTransport<Multipass>().StopConnection(true, 1);
+            }
             else
-                NetworkManager.ClientManager.StopConnection();
-            DisplayMenu();
+                InstanceFinder.ClientManager.StopConnection();
+
+            //DisplayMenu();
         }
 
         // If player is not ready, nothing to do for now

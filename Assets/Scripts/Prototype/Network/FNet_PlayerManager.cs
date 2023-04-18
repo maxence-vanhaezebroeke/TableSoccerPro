@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using FishNet.Connection;
 using FishNet.Managing;
-using FishNet.Transporting;
 using UnityEngine;
 
 [RequireComponent(typeof(NetworkManager))]
@@ -26,11 +24,9 @@ public class FNet_PlayerManager : MonoBehaviour
     {
         _spawnedPlayers = new List<Net_Player>();
         _networkManager = GetComponent<NetworkManager>();
-    }
-
-    private void Start()
-    {
-        _networkManager.SceneManager.OnClientLoadedStartScenes += OnClientLoadedStartScene;
+    
+        if (_networkManager && _networkManager.SceneManager)
+            _networkManager.SceneManager.OnClientLoadedStartScenes += OnClientLoadedStartScene;
     }
 
     private void OnClientLoadedStartScene(NetworkConnection pNConnection, bool pAsServer)
@@ -42,7 +38,7 @@ public class FNet_PlayerManager : MonoBehaviour
         OnPlayerSpawn(lPlayer);
         _networkManager.ServerManager.Spawn(lPlayer.gameObject, pNConnection);
 
-        _networkManager.SceneManager.AddOwnerToDefaultScene(lPlayer.NetworkObject);
+        //_networkManager.SceneManager.AddOwnerToDefaultScene(lPlayer.NetworkObject);
     }
 
     private void OnPlayerSpawn(Net_Player pPlayer)
@@ -72,9 +68,9 @@ public class FNet_PlayerManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (_networkManager)
+        if (_networkManager && _networkManager.SceneManager)
         {
-            _networkManager.SceneManager.OnClientLoadedStartScenes += OnClientLoadedStartScene;
+            _networkManager.SceneManager.OnClientLoadedStartScenes -= OnClientLoadedStartScene;
         }
     }
 }

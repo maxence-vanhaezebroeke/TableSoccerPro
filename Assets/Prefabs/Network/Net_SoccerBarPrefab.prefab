@@ -192,7 +192,7 @@ MonoBehaviour:
   <PredictedSpawn>k__BackingField: {fileID: 0}
   _networkBehaviours:
   - {fileID: 25548481684506439}
-  - {fileID: 0}
+  - {fileID: 4927038445928771024}
   <ParentNetworkObject>k__BackingField: {fileID: 0}
   <ChildNetworkObjects>k__BackingField: []
   _isNetworked: 1
@@ -218,16 +218,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 402926ef33e0a894d9fec352693988ac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _componentIndexCache: 255
+  _componentIndexCache: 1
   _addedNetworkObject: {fileID: 4992726915129801541}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 4992726915129801541}
   _implementsPredictionMethods: 1
   _graphicalObject: {fileID: 7686467848366940056}
   _enableTeleport: 0
   _teleportThreshold: 1
   _ownerSmoothPosition: 1
   _ownerSmoothRotation: 1
-  _ownerInterpolation: 20
+  _ownerInterpolation: 35
   _predictionType: 1
   _rigidbody: {fileID: 8999265607446004103}
   _rigidbody2d: {fileID: 0}

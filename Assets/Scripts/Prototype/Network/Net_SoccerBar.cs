@@ -456,7 +456,7 @@ public class Net_SoccerBar : NetworkBehaviour
         yield return new WaitForSeconds(0.035f);
         // After the full shot, send player back
         _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
-        yield return new WaitForSeconds(0.15f);
+        yield return new WaitForSeconds(0.175f);
         // When player is at start location, reduce its speed
         _rb.angularVelocity *= 0.1f;
     }

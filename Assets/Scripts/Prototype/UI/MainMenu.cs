@@ -126,11 +126,6 @@ public class MainMenu : MonoBehaviour
 
         Debug.Log("Server join code : " + JoinCode);
         SettingNetworkManagerProperties(allocation, JoinCode);
-        return;
-        /*
-        NetworkManager.Singleton.gameObject.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
-        NetworkManager.Singleton.StartHost();
-        */
     }
 
     private async void StartMultiplayerClient()
@@ -156,11 +151,6 @@ public class MainMenu : MonoBehaviour
         JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(_joinCodeInput.text);
 
         SettingNetworkManagerProperties(allocation);
-        return;
-        /*
-        NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
-        NetworkManager.Singleton.StartClient();
-        */
     }
 
     private async void SettingNetworkManagerProperties(Allocation pAllocation, string JoinCode)
