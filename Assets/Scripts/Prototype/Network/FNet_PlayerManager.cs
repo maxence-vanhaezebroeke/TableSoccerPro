@@ -1,11 +1,15 @@
 using System.Collections.Generic;
+using FishNet;
 using FishNet.Connection;
+using FishNet.Discovery;
 using FishNet.Managing;
 using UnityEngine;
 
 [RequireComponent(typeof(NetworkManager))]
 public class FNet_PlayerManager : MonoBehaviour
 {
+    // TODO: Set this class as a singleton ?
+
     [SerializeField]
     private Net_Player _playerPrefab;
 
@@ -24,7 +28,7 @@ public class FNet_PlayerManager : MonoBehaviour
     {
         _spawnedPlayers = new List<Net_Player>();
         _networkManager = GetComponent<NetworkManager>();
-    
+
         if (_networkManager && _networkManager.SceneManager)
             _networkManager.SceneManager.OnClientLoadedStartScenes += OnClientLoadedStartScene;
     }
@@ -41,14 +45,13 @@ public class FNet_PlayerManager : MonoBehaviour
 
     private void Server_OnPlayerSpawn(Net_Player pPlayer)
     {
-        if (pPlayer)
+        pPlayer.OnPlayerDespawn += OnPlayerDespawn;
+        _spawnedPlayers.Add(pPlayer);
+
+        // TODO: currently, playing with 2 players so its good. BUT, it should be variable
+        if (_spawnedPlayers.Count >= 2)
         {
-            pPlayer.OnPlayerDespawn += OnPlayerDespawn;
-            _spawnedPlayers.Add(pPlayer);
-        }
-        else
-        {
-            Debug.LogError("Player spawned but is already null... His existence lasted less than a frame...");
+            InstanceFinder.NetworkManager.GetComponent<NetworkDiscovery>().StopAdvertisingServer();
         }
     }
 

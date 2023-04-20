@@ -26,8 +26,9 @@ public class Net_SoccerBar : NetworkBehaviour
     {
         // tells if we need to do powershot, or move the bar
         public bool IsPowerShot;
-        // NOTE: if we move the bar, we need force & torque values ! but, for powershot, those are useless
-        public bool ResetVelocity;
+        // if bar is out of bounds, we need to move it inside
+        public bool IsOutOfBounds;
+        // regular velocity / angularVelocity forces that we would want to apply
         public Vector3 AddedForce;
         public Vector3 AddedTorque;
 
@@ -129,9 +130,12 @@ public class Net_SoccerBar : NetworkBehaviour
     #region Client-side Prediction
 
     // Default values for prediction. Changing them in CSP-way will cause CSP to activate
+    // NOTE: Unity's not detecting movementQueud as used variable, even though it is for CSP, so remove warning
+#pragma warning disable 0414
     private bool _movementQueued = false;
+#pragma warning restore 0414
+    private bool _isOutOfBounds = false;
     private bool _isPowerShotQueued = false;
-    private bool _resetVelocity = false;
     private Vector3 _addedForceQueued;
     private Vector3 _addedTorqueQueued;
 
@@ -201,7 +205,7 @@ public class Net_SoccerBar : NetworkBehaviour
         // his prediction will be correct. So, wait for powershot, then reconcile everything after.
         if (_isPowerShotActive)
             return;
-        
+
         transform.position = pRD.Position;
         transform.rotation = pRD.Rotation;
         _rb.velocity = pRD.Velocity;
@@ -214,11 +218,12 @@ public class Net_SoccerBar : NetworkBehaviour
         md.IsPowerShot = _isPowerShotQueued;
         md.AddedForce = _addedForceQueued;
         md.AddedTorque = _addedTorqueQueued;
+        md.IsOutOfBounds = _isOutOfBounds;
 
         // Resetting infos for next tick
         _movementQueued = false;
         _isPowerShotQueued = false;
-        _resetVelocity = false;
+        _isOutOfBounds = false;
         _addedForceQueued = Vector3.zero;
         _addedTorqueQueued = Vector3.zero;
     }
@@ -235,13 +240,16 @@ public class Net_SoccerBar : NetworkBehaviour
             return;
         }
 
-        if (pMoveData.ResetVelocity)
+        if (pMoveData.IsOutOfBounds)
         {
             _rb.velocity = Vector3.zero;
+            if (transform.position.z > _initialZLocation + _zBound)
+                transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation + _zBound);
+            else if (transform.position.z < _initialZLocation - _zBound)
+                transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation - _zBound);
         }
         else if (pMoveData.AddedForce != Vector3.zero)
         {
-            // TODO: I think I have to check for bounds here. No need to add acceleration if rigidbody is going out of bounds.
             _rb.AddForce(pMoveData.AddedForce, ForceMode.Acceleration);
         }
 
@@ -401,20 +409,15 @@ public class Net_SoccerBar : NetworkBehaviour
             _lastMouseY = pMoveY;
         }
 
-        // Predict next z position, to see if it's gonna be out of bounds
-        // NOTE: this prediction is not calculating WITH applied force that we would do at the end
-        // so it should be inaccurate (but still do the job in our case)
-        // FIXME: it's not working!
-        float lNextZValue = transform.position.z + _rb.velocity.z * Time.fixedDeltaTime;
-        if (lNextZValue > _initialZLocation + _zBound)
+        if (transform.position.z > _initialZLocation + _zBound)
         {
             _movementQueued = true;
-            _resetVelocity = true;
+            _isOutOfBounds = true;
         }
-        else if (lNextZValue < _initialZLocation - _zBound)
+        else if (transform.position.z < _initialZLocation - _zBound)
         {
             _movementQueued = true;
-            _resetVelocity = true;
+            _isOutOfBounds = true;
         }
 
         // ----- Update Rotation

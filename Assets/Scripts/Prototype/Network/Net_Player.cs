@@ -19,8 +19,11 @@ public class Net_Player : NetworkBehaviour
 
     [SerializeField]
     private UI_PlayerControls _playerControlsPrefab;
+    [SerializeField]
+    private UI_JoinCode _joinCodePrefab;
 
     private UI_PlayerControls _playerControls;
+    private UI_JoinCode _joinCode;
 
     // Reference to GameManager. This variable should be null for clients
     // (game manager is only relevant on server)
@@ -222,7 +225,7 @@ public class Net_Player : NetworkBehaviour
     // such as remove local thing and start for full network experience
     void OnPlayerFirstStart()
     {
-        ShowControls();
+        ShowControlsAndJoinCode();
 
         if (!_playerCamera)
         {
@@ -234,7 +237,7 @@ public class Net_Player : NetworkBehaviour
         _playerCamera.gameObject.SetActive(true);
     }
 
-    private void ShowControls()
+    private void ShowControlsAndJoinCode()
     {
         if (!_playerControls)
         {
@@ -243,6 +246,14 @@ public class Net_Player : NetworkBehaviour
         else
         {
             _playerControls.gameObject.SetActive(true);
+        }
+
+        if (GameState.Instance.HasJoinCode)
+        {
+            if (!_joinCode)
+                _joinCode = Instantiate(_joinCodePrefab);
+            else
+                _joinCode.gameObject.SetActive(true);
         }
     }
 
@@ -550,14 +561,15 @@ public class Net_Player : NetworkBehaviour
             Debug.Log("Shutting down...");
             if (IsServer)
             {
-                InstanceFinder.ClientManager.StopConnection();
                 // Stopping Tugboat
                 InstanceFinder.TransportManager.GetTransport<Multipass>().StopConnection(true, 0);
                 // Stopping FishyUnityTransport
                 InstanceFinder.TransportManager.GetTransport<Multipass>().StopConnection(true, 1);
             }
             else
+            {
                 InstanceFinder.ClientManager.StopConnection();
+            }
         }
 
         // If player is not ready, nothing to do for now

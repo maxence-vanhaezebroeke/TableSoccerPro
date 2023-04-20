@@ -18,9 +18,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
     [SerializeField]
     private UI_Loader _loader;
 
-    // Joining code displayer & input field
-    [SerializeField]
-    private TextMeshProUGUI _joinCodeText;
+    // Joining input field
     [SerializeField]
     private TMP_InputField _joinCodeInput;
 
@@ -31,7 +29,6 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         base.Awake();
 
         UtilityLibrary.ThrowIfNull(this, _loader);
-        UtilityLibrary.ThrowIfNull(this, _joinCodeText);
         UtilityLibrary.ThrowIfNull(this, _joinCodeInput);
 
         _loader.Hide();
@@ -42,19 +39,40 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         InstanceFinder.NetworkManager.TransportManager.GetTransport<Multipass>().SetClientTransport<FishyUnityTransport>();
     }
 
-    protected override void StartClient()
+    protected override void StartHostClient()
     {
-        StartClientAsync();
+        StartHostClientAsync();
+    }
+
+    protected override void StartRemoteClient()
+    {
+        StartRemoteClientAsync();
+    }
+
+    private async void StartHostClientAsync()
+    {
+        if (_loader)
+            _loader.Display();
+        
+        await TryStartClientAsync(_joinCodeInput.text);
+        if (_loader)
+            _loader.Hide();
+    }
+
+    private async void StartRemoteClientAsync()
+    {
+        _loader.Display();
+        
+        await StartUnityServices();
+        await TryStartClientAsync(_joinCodeInput.text);
+
+        if (_loader)
+            _loader.Hide();
     }
 
     protected override void StartServer()
     {
         StartServerAsync();
-    }
-
-    protected override void StartHost()
-    {
-        StartHostAsync();
     }
 
     protected override void StartClientButton_OnClick()
@@ -76,30 +94,6 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         base.StartHostButton_OnClick();
     }
 
-    // NOTE: I tried to avoid code duplicate, but with asynchronous methods, it's really easier for me to seperate
-    // host, server and client asynchronous methods.
-    private async void StartHostAsync()
-    {
-        _loader.Display();
-
-        await StartUnityServices();
-        Region lChosenRegion = await GetBestRegion();
-        await TryStartServerAsync(lChosenRegion);
-        await TryStartClientAsync(_joinCodeInput.text);
-
-        _loader.Hide();
-    }
-
-    private async void StartClientAsync()
-    {
-        _loader.Display();
-
-        await StartUnityServices();
-        await TryStartClientAsync(_joinCodeInput.text);
-
-        _loader.Hide();
-    }
-
     protected async void StartServerAsync()
     {
         _loader.Display();
@@ -108,7 +102,9 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         Region lChosenRegion = await GetBestRegion();
         await TryStartServerAsync(lChosenRegion);
 
-        _loader.Hide();
+        OnServerStartedAction.Invoke();
+        if (_loader)
+            _loader.Hide();
     }
 
     // When asking for online, as this is an asynchronous process, prevent to user from leaving buttons.
@@ -152,7 +148,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         // Always authenticate your users beforehand
         if (!AuthenticationService.Instance.IsSignedIn)
         {
-            Debug.Log("Trying to sign in...");
+            Debug.Log("Signing in...");
             // (bind to the SignInFailed callback before signing in to catch errors)
             AuthenticationService.Instance.SignInFailed += AuthenticationService_SignInFailed;
             // If not already logged, log the user in
@@ -177,7 +173,8 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         Allocation lAllocation;
         try
         {
-            lAllocation = await RelayService.Instance.CreateAllocationAsync(2, pChosenRegion.Id);
+            // TODO: make max connection variable
+            lAllocation = await RelayService.Instance.CreateAllocationAsync(4, pChosenRegion.Id);
             SetRelayServerData(lAllocation);
         }
         catch
@@ -187,9 +184,10 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
             _loader.Hide();
             return;
         }
-
+        
         // Retrieve the Relay join code for our clients to join our party
-        _joinCodeText.text = await RelayService.Instance.GetJoinCodeAsync(lAllocation.AllocationId);
+        _joinCodeInput.text = await RelayService.Instance.GetJoinCodeAsync(lAllocation.AllocationId);
+        GameState.Instance.JoinCode = _joinCodeInput.text;
 
         if (!InstanceFinder.TransportManager.GetTransport<Multipass>().StartConnection(true, 1))
             OnServerConnectionError();
@@ -202,6 +200,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         try
         {
             lAllocation = await RelayService.Instance.JoinAllocationAsync(pJoinCodeInput);
+            Debug.Log("Setting allocation server data from joining code : " + pJoinCodeInput);
             SetRelayServerData(lAllocation);
         }
         catch

@@ -1,10 +1,14 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using System;
+using FishNet;
 
 // Logic class for Start game buttons - handles network logic on buttons clicked
 public abstract class UI_StartGameButtonsNetwork : UI_StartGameButtons
 {
+    protected Action OnServerStartedAction;
+
     [SerializeField]
     protected TextMeshProUGUI _hostErrorText;
 
@@ -33,6 +37,13 @@ public abstract class UI_StartGameButtonsNetwork : UI_StartGameButtons
 
         SetTransport();
         StartClient();
+    }
+
+    protected override void ReturnButton_OnClick()
+    {
+        HideHostTextError();
+        HideClientTextError();
+        base.ReturnButton_OnClick();
     }
 
     // Call this method in children if server creation couldn't be done
@@ -87,10 +98,27 @@ public abstract class UI_StartGameButtonsNetwork : UI_StartGameButtons
     protected virtual void StartHost()
     {
         StartServer();
+        // Wait for server to be created, before joining as client
+        OnServerStartedAction += OnServerStarted;
+    }
+
+    private void OnServerStarted()
+    {
+        OnServerStartedAction -= OnServerStarted;
+        // Server is created, join as client
         StartClient();
     }
 
     protected abstract void StartServer();
 
-    protected abstract void StartClient();
+    protected void StartClient()
+    {
+        if (InstanceFinder.NetworkManager.IsOffline)
+            StartRemoteClient();
+        else
+            StartHostClient();
+    }
+
+    protected abstract void StartRemoteClient();
+    protected abstract void StartHostClient();
 }

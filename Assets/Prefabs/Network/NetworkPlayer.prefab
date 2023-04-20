@@ -52,6 +52,7 @@ MonoBehaviour:
   _networkObjectCache: {fileID: 332327867818278549}
   _playerCamera: {fileID: 6892725555420160245}
   _playerControlsPrefab: {fileID: 865534053863998262, guid: f9e37727f9d08864897e5650daf55568, type: 3}
+  _joinCodePrefab: {fileID: 7365144047436662149, guid: f0bce547dceb7dc4f8ee6f95bb993414, type: 3}
   _isPlayerReady: 0
 --- !u!114 &332327867818278549
 MonoBehaviour:
