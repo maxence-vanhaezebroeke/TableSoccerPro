@@ -148,7 +148,7 @@ MonoBehaviour:
   _componentIndexCache: 0
   _addedNetworkObject: {fileID: 4992726915129801541}
   _networkObjectCache: {fileID: 4992726915129801541}
-  _scrollSpeed: 500
+  _scrollSpeed: 560
   _barSpeed: 25
   _zBound: 1
   _speedHitBoost: 1.8

@@ -26,6 +26,8 @@ public class Net_SoccerBar : NetworkBehaviour
     {
         // tells if we need to do powershot, or move the bar
         public bool IsPowerShot;
+        public float PowerShotDirection;
+        public bool StopAngularVelocity;
         // if bar is out of bounds, we need to move it inside
         public bool IsOutOfBounds;
         // regular velocity / angularVelocity forces that we would want to apply
@@ -136,11 +138,15 @@ public class Net_SoccerBar : NetworkBehaviour
 #pragma warning restore 0414
     private bool _isOutOfBounds = false;
     private bool _isPowerShotQueued = false;
+    private bool _stopAngularVelocity = false;
+    private float _powerShotDirection = 1f;
     private Vector3 _addedForceQueued;
     private Vector3 _addedTorqueQueued;
 
     // Used to know when coroutine for powershots is active
     private bool _isPowerShotActive;
+
+    private double _powerShotTimer;
 
     #endregion
 
@@ -220,6 +226,8 @@ public class Net_SoccerBar : NetworkBehaviour
     {
         md = default;
         md.IsPowerShot = _isPowerShotQueued;
+        md.PowerShotDirection = _powerShotDirection;
+        md.StopAngularVelocity = _stopAngularVelocity;
         md.AddedForce = _addedForceQueued;
         md.AddedTorque = _addedTorqueQueued;
         md.IsOutOfBounds = _isOutOfBounds;
@@ -227,6 +235,8 @@ public class Net_SoccerBar : NetworkBehaviour
         // Resetting infos for next tick
         _movementQueued = false;
         _isPowerShotQueued = false;
+        _stopAngularVelocity = false;
+        _powerShotDirection = 1f;
         _isOutOfBounds = false;
         _addedForceQueued = Vector3.zero;
         _addedTorqueQueued = Vector3.zero;
@@ -235,14 +245,21 @@ public class Net_SoccerBar : NetworkBehaviour
     [Replicate]
     private void Move(MoveData pMoveData, bool pAsServer, Channel channel = Channel.Reliable, bool replaying = false)
     {
+
+        // Powershot must be updated, even when player isn't controlling the bar
+        UpdatePowerShot(_leftClick);
+
         if (pMoveData.IsPowerShot)
         {
             _rb.angularVelocity = Vector3.zero;
-            _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Acceleration);
-            StartCoroutine(nameof(AfterPowerShot));
+            _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor * pMoveData.PowerShotDirection, ForceMode.Acceleration);
+            //StartCoroutine(nameof(AfterPowerShot));
 
             return;
         }
+
+        if (pMoveData.StopAngularVelocity)
+            _rb.angularVelocity = Vector3.zero;
 
         if (pMoveData.IsOutOfBounds)
         {
@@ -252,11 +269,13 @@ public class Net_SoccerBar : NetworkBehaviour
             else if (transform.position.z < _initialZLocation - _zBound)
                 transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation - _zBound);
         }
+        // Move if not out of bounds
         else if (pMoveData.AddedForce != Vector3.zero)
         {
             _rb.AddForce(pMoveData.AddedForce, ForceMode.Acceleration);
         }
 
+        // Rotation
         if (pMoveData.AddedTorque != Vector3.zero)
         {
             _rb.AddTorque(pMoveData.AddedTorque, ForceMode.Acceleration);
@@ -375,20 +394,24 @@ public class Net_SoccerBar : NetworkBehaviour
         transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation);
     }
 
-    void Update()
+    void FixedUpdate()
     {
         // Only owners can move bar
         if (!IsOwner)
             return;
 
+        _leftClick = Input.GetMouseButtonDown(0);
+
+
         if (_isControlledByPlayer)
         {
+            // Movement can only happened 
             _mouseScrollValue = Input.GetAxis("Mouse ScrollWheel") * _fieldSideFactor;
             _mouseY = Input.GetAxis("Mouse Y") * _fieldSideFactor;
-            _leftClick = Input.GetMouseButtonDown(0);
 
-            UpdateMovement(_mouseScrollValue, _mouseY, _leftClick);
+            UpdateMovement(_mouseScrollValue, _mouseY);
 
+            // Blast should only happened when bar is controlled on owner
             // Lower blast cooldown if needed
             if (_blastCooldown > 0f)
                 _blastCooldown -= Time.deltaTime;
@@ -399,7 +422,57 @@ public class Net_SoccerBar : NetworkBehaviour
         }
     }
 
-    void UpdateMovement(float pScroll, float pMoveY, bool pLeftClickDown)
+    private void UpdatePowerShot(bool pLeftClickDown)
+    {
+        if (_isPowerShotActive)
+        {
+            // power shot is active : handle it.
+            _powerShotTimer += base.TimeManager.TickDelta;
+            // If statement from end of the powershot to start of the powershot (_powerShotTimer will be first greater than 2, 
+            // then greater than 4, then greater than 8)
+            if (_powerShotTimer >= 13 * base.TimeManager.TickDelta)
+            {
+                // Stop velocity !
+                _movementQueued = true;
+                _stopAngularVelocity = true;
+
+                // Ending powershot...
+                _powerShotTimer = 0f;
+                _isPowerShotActive = false;
+            }
+            else if (_powerShotTimer >= 6 * base.TimeManager.TickDelta)
+            {
+                // Reverse powershot !
+                _movementQueued = true;
+                _isPowerShotQueued = true;
+                _powerShotDirection = -1f;
+            }
+            else if (_powerShotTimer >= 3 * base.TimeManager.TickDelta)
+            {
+                // Powershot again !
+                _movementQueued = true;
+                _isPowerShotQueued = true;
+                _powerShotDirection = 1f;
+            }
+        }
+        else
+        {
+            // powershot isn't active : listens to player input
+
+            // If player controls the bar, left clicked
+            if (_isControlledByPlayer && pLeftClickDown)
+            {
+                // Queue powershot !
+                _movementQueued = true;
+                _isPowerShotQueued = true;
+                _powerShotDirection = 1f;
+
+                _isPowerShotActive = true;
+            }
+        }
+    }
+
+    void UpdateMovement(float pScroll, float pMoveY)
     {
         _resetRotationTimer = 0f;
 
@@ -428,22 +501,14 @@ public class Net_SoccerBar : NetworkBehaviour
         if (pScroll != 0)
         {
             _movementQueued = true;
-            float lMouseScrollFactor = pScroll * 2f;
+            float lMouseScrollFactor = pScroll * 1.5f;
             float lZRotation = lMouseScrollFactor * _scrollSpeed;
 
             // if we scrolled in opposite direction as current velocity, make force count more 
             if (Mathf.Sign(lMouseScrollFactor) != Mathf.Sign(_rb.angularVelocity.z))
-                lZRotation *= 1.25f;
+                lZRotation *= 3f;
 
             _addedTorqueQueued = new Vector3(0f, 0f, lZRotation);
-        }
-        // -----
-
-        // Left click = power shot, maximum power !
-        if (pLeftClickDown)
-        {
-            _movementQueued = true;
-            _isPowerShotQueued = true;
         }
         // -----
     }
@@ -474,15 +539,15 @@ public class Net_SoccerBar : NetworkBehaviour
         if (_resetRotationTimer > 1.0f)
         {
             // if Z rotation is NOT nearly zero
-            if (Mathf.Abs(_rb.transform.rotation.z) > 0.135f)
+            if (Mathf.Abs(_rb.transform.rotation.z) > 0.125f)
             {
                 // if rigidbody is not moving too fast
-                if (_rb.angularVelocity.z < 7f)
+                if (_rb.angularVelocity.z < 6f)
                 {
                     _movementQueued = true;
                     // Moving rigidbody towards 0° angle.
                     float lDirection = _rb.transform.rotation.eulerAngles.z > 180f ? 1 : -1;
-                    _addedTorqueQueued = new Vector3(0f, 0f, 5f * lDirection);
+                    _addedTorqueQueued = new Vector3(0f, 0f, 4f * lDirection);
                 }
             }
         }
@@ -496,31 +561,36 @@ public class Net_SoccerBar : NetworkBehaviour
     public void OnCollisionWithBall(Net_Ball pBall, Collision pCollision)
     {
         Rigidbody lBallRigidbody = pBall.gameObject.GetComponent<Rigidbody>();
-        Vector3 lReflectedBallDirection = Vector3.Reflect(lBallRigidbody.velocity, pCollision.GetContact(0).normal).normalized;
-        // TODO : if player hits the ball while facing the floor, ball shouldn't be speed up !
+        //Vector3 lReflectedBallDirection = Vector3.Reflect(lBallRigidbody.velocity, pCollision.GetContact(0).normal).normalized;
 
-        float _reducedForceFactor = 0.22f;
+        // If ball is going forward, and bar is going forward, then ball needs to still go forward
+        Vector3 lBallNewDirection = lBallRigidbody.velocity;
+        // If bar and ball are in opposite direction
+        if (Mathf.Sign(_rb.angularVelocity.z) != lBallRigidbody.velocity.z)
+        {
+            // Ball is going the normal direction of the collision
+            lBallNewDirection = pCollision.GetContact(0).normal;
+        }
+        lBallNewDirection = lBallNewDirection.normalized;
+
+        float _reducedForceFactor = 0.3f;
         // taking both angular and linear velocity. Scaling it down by _reducedForceFactor to fit the ball
         float lBarForce = (Mathf.Abs(_rb.angularVelocity.z) + Mathf.Abs(_rb.velocity.z)) * _reducedForceFactor;
 
-        // FIXME: this is not working so well... Fix it or remove it 
-        // if player tries to shoot the ball to the floor, ball must be stopped
-        // (*-5 because : scale it a bit up, & its a negative value - i want my force to be positive)
-        float lReducedYForce = lReflectedBallDirection.y < 0 ? lReflectedBallDirection.y * lBarForce * 5f : 1;
+        // TODO: Reduce force if force is going through the floor
+        // float lReducedYForce = lBallNewDirection.y < 0 ? lBallNewDirection.y * lBarForce * 5f : 1;
 
         // Only consider X & Z speed boost, to avoid getting the ball flying
         Vector3 lForceValue;
-        lForceValue.x = lReflectedBallDirection.x * _speedHitBoost * lBarForce - lReducedYForce;
+        lForceValue.x = lBallNewDirection.x * _speedHitBoost * lBarForce; // - lReducedYForce;
         lForceValue.y = 0f;
-        lForceValue.z = lReflectedBallDirection.z * _speedHitBoost * lBarForce - lReducedYForce;
+        lForceValue.z = lBallNewDirection.z * _speedHitBoost * lBarForce; // - lReducedYForce;
 
         // FIXME: ball is going in crazy directions sometimes... Reflected vector is maybe not in the direction I expected
-        Debug.Log("AngVelZ- " + _rb.angularVelocity.z + " -vel- " + _rb.velocity.z + " -speedForce- " + lBarForce + " -reducedYForce- " + lReducedYForce);
+        Debug.Log("AngVelZ- " + _rb.angularVelocity.z + " -vel- " + _rb.velocity.z + " -speedForce- " + lBarForce);// + " -reducedYForce- " + lReducedYForce);
         // if force value is high enough in one of our directions
         if (lBarForce > 1.2f)
         {
-            Debug.DrawLine(pCollision.GetContact(0).point, pCollision.GetContact(0).point + lReflectedBallDirection, Color.red, 4f);
-
             // If blast is not in cooldown
             if (_blastCooldown <= 0f)
             {
@@ -554,7 +624,7 @@ public class Net_SoccerBar : NetworkBehaviour
     private void Blast(float pBlastRadius, Vector3 pLocation)
     {
         _blastPrefab._maxRadius = pBlastRadius;
-        _blastPrefab._speed = pBlastRadius * 1.25f;
+        _blastPrefab._speed = pBlastRadius * 1.2f;
         Instantiate(_blastPrefab, pLocation, _blastPrefab.transform.rotation);
     }
 

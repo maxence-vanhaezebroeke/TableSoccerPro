@@ -9,7 +9,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 25548481684506439, guid: 6a855f271baed3e4592d45679828cdc9, type: 3}
       propertyPath: _zBound
-      value: 0.3
+      value: 0.35
       objectReference: {fileID: 0}
     - target: {fileID: 25548481684506439, guid: 6a855f271baed3e4592d45679828cdc9, type: 3}
       propertyPath: _barDisposition

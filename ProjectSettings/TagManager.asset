@@ -12,6 +12,7 @@ TagManager:
   - Goal
   - Bar
   - BallBound
+  - Wall
   layers:
   - Default
   - TransparentFX

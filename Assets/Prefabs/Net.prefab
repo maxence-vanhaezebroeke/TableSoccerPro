@@ -112,7 +112,7 @@ GameObject:
   - component: {fileID: 2947854615894900093}
   m_Layer: 0
   m_Name: Pole2
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -189,7 +189,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2947854615894900091}
-  m_Material: {fileID: 13400000, guid: 18e707981930eb74497f5763538e0bb0, type: 2}
+  m_Material: {fileID: 0}
   m_IsTrigger: 0
   m_Enabled: 1
   m_Radius: 0.5
@@ -598,7 +598,7 @@ GameObject:
   - component: {fileID: 2947854617352405396}
   m_Layer: 0
   m_Name: Pole1
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -675,7 +675,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2947854617352405394}
-  m_Material: {fileID: 13400000, guid: 18e707981930eb74497f5763538e0bb0, type: 2}
+  m_Material: {fileID: 0}
   m_IsTrigger: 0
   m_Enabled: 1
   m_Radius: 0.5

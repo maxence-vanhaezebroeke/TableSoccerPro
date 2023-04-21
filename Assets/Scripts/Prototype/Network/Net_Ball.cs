@@ -102,6 +102,15 @@ public class Net_Ball : NetworkBehaviour
         {
             other.gameObject.GetComponent<Net_SoccerBar>().OnCollisionWithBall(this, other);
         }
+        else if (other.gameObject.CompareTag("Wall"))
+        {
+            Bounce(other.GetContact(0).normal);
+        }
+    }
+
+    private void Bounce(Vector3 pNormal)
+    {
+        _rb.velocity = Vector3.Reflect(_rb.velocity, pNormal);
     }
 
     void OnTriggerEnter(Collider other)
