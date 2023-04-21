@@ -158,6 +158,10 @@ public class Net_SoccerBar : NetworkBehaviour
 
         // Changing max angular velocity, to get powered shots !
         _rb.maxAngularVelocity = 16f;
+        // Inertia Tensor is a rotational analog of mass : the larger the inertia component is, the more torque that is required to
+        // achieve the same angular acceleration. Point is : every soccer bar should rotate at the EXACT same speed. So define it 
+        // as the same for every soccer bar.
+        _rb.inertiaTensor = new Vector3(0f, 0f, 35f);
         // Resetting center of mass, so that soccer bar turns (Z axis) always from its origin
         // (if not, added soccer player are lowering the center of mass, making rotation not bar centered)
         _rb.centerOfMass = new Vector3(0f, 0f, 0f);
@@ -447,6 +451,9 @@ public class Net_SoccerBar : NetworkBehaviour
     // Called right after player makes a powershot
     private IEnumerator AfterPowerShot()
     {
+        // TODO: This is not dependent to physics tick, so it may be random sometimes
+        // try to do a physical solution of this.
+
         _isPowerShotActive = true;
         // First, wait a bit
         yield return new WaitForSeconds(0.04f);
@@ -455,9 +462,9 @@ public class Net_SoccerBar : NetworkBehaviour
         yield return new WaitForSeconds(0.035f);
         // After the full shot, send player back
         _rb.AddTorque(0f, 0f, -MAX_BAR_FORCE * _fieldSideFactor, ForceMode.Impulse);
-        yield return new WaitForSeconds(0.16f);
+        yield return new WaitForSeconds(0.135f);
         // When player is at start location, reduce its speed
-        _rb.angularVelocity *= 0.1f;
+        _rb.angularVelocity *= 0.02f;
         _isPowerShotActive = false;
     }
 
@@ -512,7 +519,7 @@ public class Net_SoccerBar : NetworkBehaviour
         // if force value is high enough in one of our directions
         if (lBarForce > 1.2f)
         {
-            Debug.DrawLine(pCollision.GetContact(0).point, pCollision.GetContact(0).point - lForceValue, Color.red, 4f);
+            Debug.DrawLine(pCollision.GetContact(0).point, pCollision.GetContact(0).point + lReflectedBallDirection, Color.red, 4f);
 
             // If blast is not in cooldown
             if (_blastCooldown <= 0f)

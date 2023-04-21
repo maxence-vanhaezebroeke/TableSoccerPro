@@ -7,7 +7,7 @@ PhysicMaterial:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: SoccerField
-  dynamicFriction: 0.1
+  dynamicFriction: 0.15
   staticFriction: 0
   bounciness: 0.2
   frictionCombine: 1
