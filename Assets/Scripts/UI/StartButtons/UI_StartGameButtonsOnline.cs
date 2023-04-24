@@ -53,7 +53,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
     {
         if (_loader)
             _loader.Display();
-        
+
         await TryStartClientAsync(_joinCodeInput.text);
         if (_loader)
             _loader.Hide();
@@ -62,7 +62,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
     private async void StartRemoteClientAsync()
     {
         _loader.Display();
-        
+
         await StartUnityServices();
         await TryStartClientAsync(_joinCodeInput.text);
 
@@ -99,8 +99,8 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         _loader.Display();
 
         await StartUnityServices();
-        Region lChosenRegion = await GetBestRegion();
-        await TryStartServerAsync(lChosenRegion);
+        // Region lWestEuropeRegion = await GetEUWRegion();
+        await TryStartServerAsync();
 
         OnServerStartedAction.Invoke();
         if (_loader)
@@ -167,14 +167,15 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
             OnClientConnectionError();
     }
 
-    private async System.Threading.Tasks.Task TryStartServerAsync(Region pChosenRegion)
+    private async System.Threading.Tasks.Task TryStartServerAsync(Region pChosenRegion = null)
     {
         // Ask Unity Services for allocation data based on a join code
         Allocation lAllocation;
         try
         {
             // TODO: make max connection variable
-            lAllocation = await RelayService.Instance.CreateAllocationAsync(4, pChosenRegion.Id);
+            // If no Region chosen, Unity Relay's QoS will take the best server
+            lAllocation = await RelayService.Instance.CreateAllocationAsync(4, pChosenRegion != null ? pChosenRegion.Id : null);
             SetRelayServerData(lAllocation);
         }
         catch
@@ -184,7 +185,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
             _loader.Hide();
             return;
         }
-        
+
         // Retrieve the Relay join code for our clients to join our party
         _joinCodeInput.text = await RelayService.Instance.GetJoinCodeAsync(lAllocation.AllocationId);
         GameState.Instance.JoinCode = _joinCodeInput.text;
@@ -214,14 +215,13 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         InstanceFinder.NetworkManager.ClientManager.StartConnection();
     }
 
-    protected async System.Threading.Tasks.Task<Region> GetBestRegion()
+    protected async System.Threading.Tasks.Task<Region> GetEUWRegion()
     {
         List<Region> lAllRegions = await RelayService.Instance.ListRegionsAsync();
 
         Region lChosenRegion = lAllRegions[0];
         foreach (Region lRegion in lAllRegions)
         {
-            // TODO: don't return europe-west, but the lowest latency available region
             if (lRegion.Id.StartsWith("europe-west"))
             {
                 lChosenRegion = lRegion;

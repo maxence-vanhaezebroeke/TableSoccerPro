@@ -9,6 +9,7 @@ using FishNet.Transporting.Multipass;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using System.Linq;
+using FishNet.Discovery;
 
 public class Net_Player : NetworkBehaviour
 {
@@ -442,6 +443,10 @@ public class Net_Player : NetworkBehaviour
     {
         if (!IsServer)
             return;
+
+        // When game starts, no more players are expected to come.
+        if (NetworkManager.GetComponent<NetworkDiscovery>() is NetworkDiscovery lNetDiscovery)
+            lNetDiscovery.StopAdvertisingServer();
 
         // Starting a game means that maybe players were waiting for other players, so they played
         // We need to reset game for everyone to play from 0!

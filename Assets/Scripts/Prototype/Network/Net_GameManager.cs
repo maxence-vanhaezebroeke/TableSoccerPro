@@ -2,11 +2,8 @@ using FishNet;
 using FishNet.Connection;
 using UnityEngine;
 
-public class Net_GameManager : MonoBehaviour
+public class Net_GameManager : Singleton<Net_GameManager>
 {
-    // Singleton class
-    public static Net_GameManager Instance { get; private set; }
-
     #region Soccer bars prefab
 
     [SerializeField]
@@ -58,13 +55,9 @@ public class Net_GameManager : MonoBehaviour
     // GameManager is not a networked object, because it doesn't need to
     // It's just an internal state the server keeps to run gameplay logic !
 
-    void Awake()
+    protected override void Awake()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
-
+        base.Awake();
 
         UtilityLibrary.ThrowIfNull(this, _onePlayerSoccerBarPrefab);
         UtilityLibrary.ThrowIfNull(this, _twoPlayerSoccerBarPrefab);

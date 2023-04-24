@@ -227,7 +227,7 @@ MonoBehaviour:
   _teleportThreshold: 1
   _ownerSmoothPosition: 1
   _ownerSmoothRotation: 1
-  _ownerInterpolation: 35
+  _ownerInterpolation: 1
   _predictionType: 1
   _rigidbody: {fileID: 8999265607446004103}
   _rigidbody2d: {fileID: 0}
