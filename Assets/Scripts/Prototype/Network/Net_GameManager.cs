@@ -29,16 +29,6 @@ public class Net_GameManager : Singleton<Net_GameManager>
     [Tooltip("Determines the middle point of the field, from which bars, players and ball will spawn & play.")]
     private Vector3 _fieldLocation;
 
-    [SerializeField]
-    // TODO: This is serialized, because this is made to change ! Implement 4 players
-    [Tooltip("Number of players to play at this game. For now, works only with 2 players")]
-    private int _numberOfPlayers;
-
-    public int NumberOfPlayers
-    {
-        get => _numberOfPlayers;
-    }
-
     private Net_SoccerField _soccerField;
     private Net_Ball _soccerBall;
 
@@ -70,7 +60,7 @@ public class Net_GameManager : Singleton<Net_GameManager>
 
     public int NumberOfBarsRequired()
     {
-        switch (_numberOfPlayers)
+        switch (GameMode.Instance.NumberOfPlayer)
         {
             case 2:
                 return 4;
@@ -82,14 +72,22 @@ public class Net_GameManager : Singleton<Net_GameManager>
         }
     }
 
-    public bool IsRedFieldSide(Vector3 pPosition)
+    public Net_SoccerField.FieldSide GetRandomFieldSide()
     {
-        return _soccerField.IsRedSide(pPosition);
+        if (GameMode.Instance.NumberOfPlayer == 2)
+            return _soccerField.TakeTwoPlayerRandomSide();
+        else if (GameMode.Instance.NumberOfPlayer == 4)
+            return _soccerField.TakeFourPlayerRandomSide();
+        else
+        {
+            Debug.Log("Non-valid number of player : field side cannot be set");
+            return Net_SoccerField.FieldSide.None;
+        } 
     }
 
-    public Transform GetRandomFieldSide()
+    public Transform GetSideTransform(Net_SoccerField.FieldSide pFieldSide)
     {
-        return _soccerField.TakeRandomSide();
+        return _soccerField.GetSideTransform(pFieldSide);
     }
 
     public void ResetGame()
@@ -112,105 +110,128 @@ public class Net_GameManager : Singleton<Net_GameManager>
         InstanceFinder.ServerManager.Spawn(_soccerField.gameObject);
     }
 
-    // Without args : server spawn
-    // With args : give client id for client spawn
-    public void Server_InstantiateSoccerBar(NetworkConnection pClient = null)
+    private void SpawnBar(Net_SoccerBar pPrefab, NetworkConnection pNConnection, Vector3 pPosition)
     {
-        // If we get a client id, we instantiate client soccer bar
-        if (pClient != null)
+        Net_SoccerBar lSoccerBar = Instantiate(pPrefab, pPosition, pPrefab.transform.rotation);
+        InstanceFinder.ServerManager.Spawn(lSoccerBar.gameObject, pNConnection);
+        lSoccerBar.Server_Initialize(pNConnection.ClientId);
+
+        // If bar is for remote client, initialize it
+        if (!pNConnection.IsHost)
+            lSoccerBar.InitializeClientRpc(pNConnection);
+    }
+
+    private void SpawnBar(bool pIsRedSide, Net_SoccerBar.BarDisposition pBarDisposition, NetworkConnection pNConnection)
+    {
+        _initializeLocation = _fieldLocation;
+        _initializeLocation.y += .5f;
+        switch (pBarDisposition)
         {
-            Server_InstantiateClientSoccerBars(pClient);
-        }
-        else
-        {
-            // else, server soccer bar
-            Server_InstantiateServerSoccerBars();
+            case Net_SoccerBar.BarDisposition.One:
+                _initializeLocation.x += pIsRedSide ? 3.1f : -3.1f;
+                SpawnBar(_onePlayerSoccerBarPrefab, pNConnection, _initializeLocation);
+                break;
+            case Net_SoccerBar.BarDisposition.Two:
+                _initializeLocation.x += pIsRedSide ? 2.2f : -2.2f;
+                SpawnBar(_twoPlayerSoccerBarPrefab, pNConnection, _initializeLocation);
+                break;
+            case Net_SoccerBar.BarDisposition.Three:
+                _initializeLocation.x += pIsRedSide ? -1.4f : 1.4f;
+                SpawnBar(_threePlayerSoccerBarPrefab, pNConnection, _initializeLocation);
+                break;
+            case Net_SoccerBar.BarDisposition.Five:
+                _initializeLocation.x += pIsRedSide ? .4f : -.4f;
+                SpawnBar(_fivePlayerSoccerBarPrefab, pNConnection, _initializeLocation);
+                break;
         }
     }
 
-    private void Server_InstantiateServerSoccerBars()
+    private void SpawnBlueBar(Net_SoccerBar.BarDisposition pBarDisposition, NetworkConnection pNConnection)
     {
-        // TODO : this assumes server is blue side, and player is red side
-        // but currently side is randomly set. Take this in account !
-
-        // NOTE: as the game is playing in host-mode, spawning "servers soccer bar" means that we're spawning bars for host
-        NetworkConnection lPlayerConnection = InstanceFinder.NetworkManager.GetComponent<FNet_PlayerManager>().Players[0].LocalConnection;
-
-        // First, left goalkeeper
-        _initializeLocation = _fieldLocation;
-        _initializeLocation.x -= 3.1f;
-        _initializeLocation.y += .5f;
-        Net_SoccerBar lSB = Instantiate(_onePlayerSoccerBarPrefab, _initializeLocation, _onePlayerSoccerBarPrefab.transform.rotation);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, lPlayerConnection);
-        lSB.Server_Initialize(lPlayerConnection.ClientId);
-        // Server is client (host), so no need to initialize it for him
-        //lSB.InitializeClientRpc(lPlayerConnection);
-
-        // Second, left defenders
-        _initializeLocation.x += .9f;
-        lSB = Instantiate(_twoPlayerSoccerBarPrefab, _initializeLocation, _twoPlayerSoccerBarPrefab.transform.rotation);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, lPlayerConnection);
-        lSB.Server_Initialize(lPlayerConnection.ClientId);
-        //lSB.InitializeClientRpc(lPlayerConnection);
-
-        // Third, left halves
-        _initializeLocation.x += 1.8f;
-        lSB = Instantiate(_fivePlayerSoccerBarPrefab, _initializeLocation, _fivePlayerSoccerBarPrefab.transform.rotation);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, lPlayerConnection);
-        lSB.Server_Initialize(lPlayerConnection.ClientId);
-        //lSB.InitializeClientRpc(lPlayerConnection);
-
-        // Last (4th), left attackers
-        _initializeLocation.x += 1.8f;
-        lSB = Instantiate(_threePlayerSoccerBarPrefab, _initializeLocation, _threePlayerSoccerBarPrefab.transform.rotation);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, lPlayerConnection);
-        lSB.Server_Initialize(lPlayerConnection.ClientId);
-        //lSB.InitializeClientRpc(lPlayerConnection);
+        SpawnBar(false, pBarDisposition, pNConnection);
     }
 
-    private void Server_InstantiateClientSoccerBars(NetworkConnection pClient)
+    private void SpawnRedBar(Net_SoccerBar.BarDisposition pBarDisposition, NetworkConnection pNConnection)
     {
-        // First, right goalkeeper
-        _initializeLocation = _fieldLocation;
-        _initializeLocation.x += 3.1f;
-        _initializeLocation.y += .5f;
-        Net_SoccerBar lSB = Instantiate(_onePlayerSoccerBarPrefab, _initializeLocation, _onePlayerSoccerBarPrefab.transform.rotation);
-        //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, pClient);
-        // Initialize it on server - server will add soccer bar reference to the corresponding player
-        lSB.Server_Initialize(pClient.ClientId);
-        // Initialize it on client - adding it to owning player only, and returning server info if needed
-        lSB.InitializeClientRpc(pClient);
+        SpawnBar(true, pBarDisposition, pNConnection);
+    }
 
-        // Second, right defenders
-        _initializeLocation.x += -.9f;
-        lSB = Instantiate(_twoPlayerSoccerBarPrefab, _initializeLocation, _twoPlayerSoccerBarPrefab.transform.rotation);
-        //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, pClient);
-        // Initialize it on server - server will add soccer bar reference to the corresponding player
-        lSB.Server_Initialize(pClient.ClientId);
-        // Initialize it on client - adding it to owning player only, and returning server info if needed
-        lSB.InitializeClientRpc(pClient);
+    // Field side to know which side we must spawn bars (because it can be random), and network connection to owner
+    // (can be server if host, or fully remote client)
+    public void Server_InstantiateSoccerBars(Net_SoccerField.FieldSide pFieldSide, NetworkConnection pNetworkConnection)
+    {
+        switch (GameMode.Instance.NumberOfPlayer)
+        {
+            case 2:
+                if (pFieldSide == Net_SoccerField.FieldSide.Red)
+                    Server_InstantiateFourRedSoccerBars(pNetworkConnection);
+                else if (pFieldSide == Net_SoccerField.FieldSide.Blue)
+                    Server_InstantiateFourBlueSoccerBars(pNetworkConnection);
+                else
+                    Debug.LogError("Cannot instantiate soccer bar for undefined field side...");
+                break;
+            case 4:
+                if (pFieldSide == Net_SoccerField.FieldSide.Red)
+                {
+                    // First player to join will be in attack
+                    if (_soccerField.RedSidePlayers == 1)
+                        Server_InstantiateTwoRedAttackSoccerBars(pNetworkConnection);
+                    else
+                        Server_InstantiateTwoRedDefenseSoccerBars(pNetworkConnection);
+                }
+                else if (pFieldSide == Net_SoccerField.FieldSide.Blue)
+                {
+                    if (_soccerField.BlueSidePlayers == 1)
+                        Server_InstantiateTwoBlueAttackSoccerBars(pNetworkConnection);
+                    else
+                        Server_InstantiateTwoBlueDefenseSoccerBars(pNetworkConnection);
+                }
+                else
+                {
+                    throw new System.NotSupportedException();
+                }
 
-        // Third, right halves
-        _initializeLocation.x += -1.8f;
-        lSB = Instantiate(_fivePlayerSoccerBarPrefab, _initializeLocation, _fivePlayerSoccerBarPrefab.transform.rotation);
-        //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, pClient);
-        // Initialize it on server - server will add soccer bar reference to the corresponding player
-        lSB.Server_Initialize(pClient.ClientId);
-        // Initialize it on client - adding it to owning player only, and returning server info if needed
-        lSB.InitializeClientRpc(pClient);
+                break;
+            default:
+                Debug.LogError("Number of player given by game mode is not implemented. Value is : " + GameMode.Instance.NumberOfPlayer);
+                break;
+        }
+    }
 
-        // Last (4th), right attackers
-        _initializeLocation.x += -1.8f;
-        lSB = Instantiate(_threePlayerSoccerBarPrefab, _initializeLocation, _threePlayerSoccerBarPrefab.transform.rotation);
-        //lSB.GetComponent<NetworkObject>().SpawnWithOwnership(pClientId);
-        InstanceFinder.ServerManager.Spawn(lSB.gameObject, pClient);
-        // Initialize it on server - server will add soccer bar reference to the corresponding player
-        lSB.Server_Initialize(pClient.ClientId);
-        // Initialize it on client - adding it to owning player only, and returning server info if needed
-        lSB.InitializeClientRpc(pClient);
+    private void Server_InstantiateFourBlueSoccerBars(NetworkConnection pNConnection)
+    {
+        Server_InstantiateTwoBlueDefenseSoccerBars(pNConnection);
+        Server_InstantiateTwoBlueAttackSoccerBars(pNConnection);
+    }
+
+    private void Server_InstantiateFourRedSoccerBars(NetworkConnection pNConnection)
+    {
+        Server_InstantiateTwoRedDefenseSoccerBars(pNConnection);
+        Server_InstantiateTwoRedAttackSoccerBars(pNConnection);
+    }
+
+    private void Server_InstantiateTwoRedAttackSoccerBars(NetworkConnection pNConnection)
+    {
+        SpawnRedBar(Net_SoccerBar.BarDisposition.Five, pNConnection);
+        SpawnRedBar(Net_SoccerBar.BarDisposition.Three, pNConnection);
+    }
+
+    private void Server_InstantiateTwoRedDefenseSoccerBars(NetworkConnection pNConnection)
+    {
+        SpawnRedBar(Net_SoccerBar.BarDisposition.One, pNConnection);
+        SpawnRedBar(Net_SoccerBar.BarDisposition.Two, pNConnection);
+    }
+
+        private void Server_InstantiateTwoBlueAttackSoccerBars(NetworkConnection pNConnection)
+    {
+        SpawnBlueBar(Net_SoccerBar.BarDisposition.Five, pNConnection);
+        SpawnBlueBar(Net_SoccerBar.BarDisposition.Three, pNConnection);
+    }
+
+    private void Server_InstantiateTwoBlueDefenseSoccerBars(NetworkConnection pNConnection)
+    {
+        SpawnBlueBar(Net_SoccerBar.BarDisposition.One, pNConnection);
+        SpawnBlueBar(Net_SoccerBar.BarDisposition.Two, pNConnection);
     }
 
     public void Server_InstantiateBall()
@@ -249,15 +270,12 @@ public class Net_GameManager : Singleton<Net_GameManager>
         }
 
         // We already checked for soccer field validity, so we can assume fct will always have a value
-        pNetBall.transform.position = FindClosestBallCorner(pNetBall.transform.position).Value;
+        pNetBall.transform.position = FindClosestBallCorner(pNetBall.transform.position);
     }
 
     // From the given position, will return the ball position of the closest corner (corner + ball offset)
-    private Vector3? FindClosestBallCorner(Vector3 pPosition)
+    private Vector3 FindClosestBallCorner(Vector3 pPosition)
     {
-        if (!_soccerField)
-            return null;
-
         // Get corners (blue & red)
         Vector3[] lBlueCorners = _soccerField.GetBlueCornersPosition();
         Vector3[] lRedCorners = _soccerField.GetRedCornersPosition();

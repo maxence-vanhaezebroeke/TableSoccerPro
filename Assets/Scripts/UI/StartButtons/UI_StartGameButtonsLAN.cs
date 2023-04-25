@@ -66,7 +66,6 @@ public class UI_StartGameButtonsLAN : UI_StartGameButtonsNetwork
     private void NetworkDiscovery_ServerFound(IPEndPoint pIPEndPoint)
     {
         Tugboat lTugboat = InstanceFinder.TransportManager.GetTransport<Tugboat>();
-        Debug.Log("IPEndPoint gave us -port- " + pIPEndPoint.Port + " -ip- " + pIPEndPoint.Address + " // Current address is : " + lTugboat.GetClientAddress() + " - current port : " + lTugboat.GetPort());
         lTugboat.SetClientAddress(pIPEndPoint.Address.ToString());
 
         InstanceFinder.NetworkManager.ClientManager.StartConnection();

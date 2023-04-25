@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class UI_MainMenu : MonoBehaviour
 {
@@ -9,6 +10,9 @@ public class UI_MainMenu : MonoBehaviour
 
     [SerializeField]
     private Button _startGameOnlineButton;
+
+    [SerializeField]
+    private TMP_Dropdown _numberOfPlayerDropdown;
 
     [SerializeField]
     private Button _quitButton;
@@ -23,6 +27,7 @@ public class UI_MainMenu : MonoBehaviour
     {
         UtilityLibrary.ThrowIfNull(this, _startGameLanButton);
         UtilityLibrary.ThrowIfNull(this, _startGameOnlineButton);
+        UtilityLibrary.ThrowIfNull(this, _numberOfPlayerDropdown);
         UtilityLibrary.ThrowIfNull(this, _quitButton);
 
         UtilityLibrary.ThrowIfNull(this, _startGameButtonsLAN);
@@ -34,6 +39,7 @@ public class UI_MainMenu : MonoBehaviour
 
         _startGameLanButton.onClick.AddListener(StartGameLanButton_OnClick);
         _startGameOnlineButton.onClick.AddListener(StartGameOnlineButton_OnClick);
+        _numberOfPlayerDropdown.onValueChanged.AddListener(NumberOfPlayerDropdown_OnValueChanged);
         _quitButton.onClick.AddListener(QuitButton_OnClick);
     }
 
@@ -52,6 +58,11 @@ public class UI_MainMenu : MonoBehaviour
     private void StartGameOnlineButton_OnClick()
     {
         SwitchToSubMenu(_startGameButtonsOnline);
+    }
+
+    private void NumberOfPlayerDropdown_OnValueChanged(int pValue)
+    {
+        GameMode.Instance.SetNumberOfPlayer(Int32.Parse(_numberOfPlayerDropdown.options[pValue].text));
     }
 
     private void QuitButton_OnClick()
@@ -81,5 +92,6 @@ public class UI_MainMenu : MonoBehaviour
     {
         _startGameLanButton.gameObject.SetActive(pIsInteractable);
         _startGameOnlineButton.gameObject.SetActive(pIsInteractable);
+        _numberOfPlayerDropdown.interactable = pIsInteractable;
     }
 }

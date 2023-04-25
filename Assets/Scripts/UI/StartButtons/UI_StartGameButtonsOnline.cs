@@ -173,9 +173,8 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
         Allocation lAllocation;
         try
         {
-            // TODO: make max connection variable
             // If no Region chosen, Unity Relay's QoS will take the best server
-            lAllocation = await RelayService.Instance.CreateAllocationAsync(4, pChosenRegion != null ? pChosenRegion.Id : null);
+            lAllocation = await RelayService.Instance.CreateAllocationAsync(GameMode.Instance.NumberOfPlayer, pChosenRegion != null ? pChosenRegion.Id : null);
             SetRelayServerData(lAllocation);
         }
         catch
@@ -188,7 +187,7 @@ public class UI_StartGameButtonsOnline : UI_StartGameButtonsNetwork
 
         // Retrieve the Relay join code for our clients to join our party
         _joinCodeInput.text = await RelayService.Instance.GetJoinCodeAsync(lAllocation.AllocationId);
-        GameState.Instance.JoinCode = _joinCodeInput.text;
+        PlayerState.Instance.JoinCode = _joinCodeInput.text;
 
         if (!InstanceFinder.TransportManager.GetTransport<Multipass>().StartConnection(true, 1))
             OnServerConnectionError();

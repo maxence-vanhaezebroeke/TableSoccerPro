@@ -1,10 +1,9 @@
-using System;
 using FishNet.Managing;
 using FishNet.Transporting;
 using UnityEngine;
 
 [RequireComponent(typeof(NetworkManager))]
-public class GameState : Singleton<GameState>
+public class PlayerState : Singleton<PlayerState>
 {
     private string _joinCode = null;
     public string JoinCode

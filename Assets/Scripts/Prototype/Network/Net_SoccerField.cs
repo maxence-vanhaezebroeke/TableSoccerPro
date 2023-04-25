@@ -11,7 +11,7 @@ public class Net_SoccerField : NetworkBehaviour
         Red,
         Blue
     }
-    
+
     [SerializeField]
     private Transform _blueSideTransform;
 
@@ -29,10 +29,10 @@ public class Net_SoccerField : NetworkBehaviour
     private List<ParticleSystem> _redSideParticleSystems;
 
     [Header("Corners :")]
-    
+
     [SerializeField]
     private Transform _blueCorner1;
-    
+
     [SerializeField]
     private Transform _blueCorner2;
 
@@ -42,8 +42,11 @@ public class Net_SoccerField : NetworkBehaviour
     [SerializeField]
     private Transform _redCorner2;
 
-    private bool _isBlueSideTaken = false;
-    private bool _isRedSideTaken = false;
+    // The number of player set to each field of the side. (for a 2 player match, field must have 1 player on each side. For a 4 player match, 2 players on each side)
+    private int _blueSidePlayers = 0;
+    public int BlueSidePlayers { get { return _blueSidePlayers; } }
+    private int _redSidePlayers = 0;
+    public int RedSidePlayers { get { return _redSidePlayers; } }
 
     public override void OnStartServer()
     {
@@ -52,7 +55,7 @@ public class Net_SoccerField : NetworkBehaviour
         UtilityLibrary.ThrowIfNull(this, _redSideTransform);
         UtilityLibrary.ThrowIfNull(this, _blueSideScoreText);
         UtilityLibrary.ThrowIfNull(this, _redSideScoreText);
-        
+
         UtilityLibrary.ThrowIfNull(this, _blueCorner1);
         UtilityLibrary.ThrowIfNull(this, _blueCorner2);
         UtilityLibrary.ThrowIfNull(this, _redCorner1);
@@ -76,7 +79,7 @@ public class Net_SoccerField : NetworkBehaviour
     // Field side should be blue when ball get scored on blue net, same for red side
     private void OnScore(FieldSide pFieldSide)
     {
-        switch(pFieldSide)
+        switch (pFieldSide)
         {
             // If we score on red net
             case FieldSide.Red:
@@ -87,7 +90,7 @@ public class Net_SoccerField : NetworkBehaviour
                 {
                     lBlueSideParticleSystem.Play();
                 }
-            break;
+                break;
             case FieldSide.Blue:
                 // Red gets the point
                 _redSideScoreText.text = (int.Parse(_redSideScoreText.text) + 1).ToString();
@@ -96,10 +99,10 @@ public class Net_SoccerField : NetworkBehaviour
                 {
                     lRedSideParticleSystem.Play();
                 }
-            break;
+                break;
             case FieldSide.None:
                 Debug.LogError("Cannot score on None side");
-            break;
+                break;
         }
     }
 
@@ -114,88 +117,116 @@ public class Net_SoccerField : NetworkBehaviour
 
     public Vector3[] GetBlueCornersPosition()
     {
-        return new Vector3[] {_blueCorner1.position, _blueCorner2.position};
+        return new Vector3[] { _blueCorner1.position, _blueCorner2.position };
     }
 
     public Vector3[] GetRedCornersPosition()
     {
-        return new Vector3[] {_redCorner1.position, _redCorner2.position};
+        return new Vector3[] { _redCorner1.position, _redCorner2.position };
     }
 
-    // FIXME : for now, don't need to go further
-    // But if tis function is used very often, change implementation.
-    public bool IsRedSide(Vector3 pPosition)
+    public FieldSide TakeTwoPlayerRandomSide()
     {
-        return Vector3.Distance(_blueSideTransform.position, pPosition) > Vector3.Distance(_redSideTransform.position, pPosition);
-    }
-
-    // It is important here to return transform : that way we can know 
-    // the rotation to apply to our player, depending on which side he is
-    public Transform TakeRandomSide()
-    {
-        // First, the server will ask for his position, so we give him blue side
-        if (!_isBlueSideTaken)
+        if (_blueSidePlayers == 1)
         {
-            Debug.Log("Side: blue");
-            _isBlueSideTaken = true;
-            return _blueSideTransform;
-        }
-        // Then, client will as for his pos, so give him red side
-        else
-        {
-            Debug.Log("Side: red");
-            _isRedSideTaken = true;
-            return _redSideTransform;
-        }
-
-        // FIXME : The code below works, and is supposed to be used !
-        // BUT, it does not currently take into account soccer bar position
-        // so fix later!
-#pragma warning disable CS0162
-        if (_isBlueSideTaken)
-        {
-            // Both side taken, no side can be return
-            if (_isRedSideTaken)
+            if (_redSidePlayers < 1)
             {
-                Debug.Log("No place to take on this field !");
-                return null;
+                // Blue side is taken, return red side
+                return TakeRedSide();
             }
             else
             {
-                // Blue side is taken, return red side
-                _isRedSideTaken = true;
-                return _redSideTransform;
+                Debug.LogError("No side available on the field.");
+                return FieldSide.None;
             }
         }
 
-        if (_isRedSideTaken)
+        if (_redSidePlayers == 1)
         {
-            // Case when both side are taken is already handled
-
-            if (!_isBlueSideTaken)
+            if (_blueSidePlayers < 1)
             {
                 // Red side is taken, return blue side
-                _isBlueSideTaken = true;
-                return _blueSideTransform;
+                return TakeBlueSide();
+            }
+            else
+            {
+                Debug.LogError("No side available on the field.");
+                return FieldSide.None;
             }
         }
 
-        // Get random side of the field, since both are free
+        // Get random side of the field
+        return GetRandomSide();
+    }
 
-        // 0 = red, 1 = blue
+    private FieldSide GetRandomSide()
+    {
         int lRandomSide = Random.Range(0, 2);
         if (lRandomSide == 0)
         {
-            _isRedSideTaken = true;
-            return _redSideTransform;
+            return TakeRedSide();
         }
         else
         {
-            _isBlueSideTaken = true;
-            return _blueSideTransform;
+            return TakeBlueSide();
         }
-#pragma warning restore CS0162
+    }
 
+    private FieldSide TakeBlueSide()
+    {
+        _blueSidePlayers++;
+        return FieldSide.Blue;
+    }
+
+    private FieldSide TakeRedSide()
+    {
+        _redSidePlayers++;
+        return FieldSide.Red;
+    }
+
+    public FieldSide TakeFourPlayerRandomSide()
+    {
+        if (_blueSidePlayers == 2)
+        {
+            if (_redSidePlayers < 2)
+            {
+                return TakeRedSide();
+            }
+            else
+            {
+                Debug.LogError("No side available on the field.");
+                return FieldSide.None;
+            }
+        }
+
+        if (_redSidePlayers == 2)
+        {
+            if (_blueSidePlayers < 2)
+            {
+                return TakeBlueSide();
+            }
+            else
+            {
+                Debug.LogError("No side available on the field.");
+                return FieldSide.None;
+            }
+        }
+
+        if (_blueSidePlayers == 0 && _redSidePlayers == 1)
+            return TakeBlueSide();
+
+        if (_redSidePlayers == 0 && _blueSidePlayers == 1)
+            return TakeRedSide();
+
+        // If there is space on both sides, take randomly
+        return GetRandomSide();
+    }
+
+    public Transform GetSideTransform(FieldSide pFieldSide)
+    {
+        if (pFieldSide == FieldSide.None)
+            return null;
+
+        return pFieldSide == FieldSide.Red ? _redSideTransform : _blueSideTransform;
     }
 }
- 

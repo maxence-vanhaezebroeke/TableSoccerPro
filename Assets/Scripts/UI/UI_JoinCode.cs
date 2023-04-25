@@ -18,7 +18,7 @@ public class UI_JoinCode : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        if (GameState.Instance.HasJoinCode)
+        if (PlayerState.Instance.HasJoinCode)
             Show();
         else
             // If we spawned a join code to display the game state join code, and there is none, no need to keep this alive
@@ -27,8 +27,8 @@ public class UI_JoinCode : MonoBehaviour
 
     private void Show()
     {
-        if (_joinCodeText.text != GameState.Instance.JoinCode)
-            _joinCodeText.text = GameState.Instance.JoinCode;
+        if (_joinCodeText.text != PlayerState.Instance.JoinCode)
+            _joinCodeText.text = PlayerState.Instance.JoinCode;
 
         _infoText.alpha = 255f;
         _joinCodeText.alpha = 255f;

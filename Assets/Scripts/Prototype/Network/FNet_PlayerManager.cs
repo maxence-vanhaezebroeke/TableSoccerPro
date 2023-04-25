@@ -48,8 +48,7 @@ public class FNet_PlayerManager : MonoBehaviour
         pPlayer.OnPlayerDespawn += OnPlayerDespawn;
         _spawnedPlayers.Add(pPlayer);
 
-        // TODO: currently, playing with 2 players so its good. BUT, it should be variable
-        if (_spawnedPlayers.Count >= 2)
+        if (_spawnedPlayers.Count >= GameMode.Instance.NumberOfPlayer)
         {
             InstanceFinder.NetworkManager.GetComponent<NetworkDiscovery>().StopAdvertisingServer();
         }

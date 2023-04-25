@@ -28,6 +28,8 @@ public class Net_SoccerBar : NetworkBehaviour
         public bool IsPowerShot;
         public float PowerShotDirection;
         public bool StopAngularVelocity;
+
+        public bool LeftClick;
         // if bar is out of bounds, we need to move it inside
         public bool IsOutOfBounds;
         // regular velocity / angularVelocity forces that we would want to apply
@@ -87,6 +89,8 @@ public class Net_SoccerBar : NetworkBehaviour
     private PS_Blast _blastPrefab;
 
     #endregion
+
+    public BarDisposition GetBarDisposition { get { return _barDisposition; } }
 
     // Simple rigidbody reference (since its on RequireComponent)
     private Rigidbody _rb;
@@ -228,6 +232,7 @@ public class Net_SoccerBar : NetworkBehaviour
         md.IsPowerShot = _isPowerShotQueued;
         md.PowerShotDirection = _powerShotDirection;
         md.StopAngularVelocity = _stopAngularVelocity;
+        md.LeftClick = _leftClick;
         md.AddedForce = _addedForceQueued;
         md.AddedTorque = _addedTorqueQueued;
         md.IsOutOfBounds = _isOutOfBounds;
@@ -245,22 +250,25 @@ public class Net_SoccerBar : NetworkBehaviour
     [Replicate]
     private void Move(MoveData pMoveData, bool pAsServer, Channel channel = Channel.Reliable, bool replaying = false)
     {
-
         // Powershot must be updated, even when player isn't controlling the bar
-        UpdatePowerShot(_leftClick);
+        UpdatePowerShot(pMoveData.LeftClick);
+
+        // Rotation
+        if (pMoveData.StopAngularVelocity)
+            _rb.angularVelocity = Vector3.zero;
 
         if (pMoveData.IsPowerShot)
         {
             _rb.angularVelocity = Vector3.zero;
             _rb.AddTorque(0f, 0f, MAX_BAR_FORCE * _fieldSideFactor * pMoveData.PowerShotDirection, ForceMode.Acceleration);
             //StartCoroutine(nameof(AfterPowerShot));
-
-            return;
+        }
+        else if (pMoveData.AddedTorque != Vector3.zero)
+        {
+            _rb.AddTorque(pMoveData.AddedTorque, ForceMode.Acceleration);
         }
 
-        if (pMoveData.StopAngularVelocity)
-            _rb.angularVelocity = Vector3.zero;
-
+        // Movement
         if (pMoveData.IsOutOfBounds)
         {
             _rb.velocity = Vector3.zero;
@@ -273,12 +281,6 @@ public class Net_SoccerBar : NetworkBehaviour
         else if (pMoveData.AddedForce != Vector3.zero)
         {
             _rb.AddForce(pMoveData.AddedForce, ForceMode.Acceleration);
-        }
-
-        // Rotation
-        if (pMoveData.AddedTorque != Vector3.zero)
-        {
-            _rb.AddTorque(pMoveData.AddedTorque, ForceMode.Acceleration);
         }
     }
 
@@ -402,11 +404,11 @@ public class Net_SoccerBar : NetworkBehaviour
 
         _leftClick = Input.GetMouseButtonDown(0);
 
-
         if (_isControlledByPlayer)
         {
-            // Movement can only happened 
             _mouseScrollValue = Input.GetAxis("Mouse ScrollWheel") * _fieldSideFactor;
+            // NOTE: Known bug - when using touchpad, sometimes there is one second before user can move bar
+            // (right after possessing it). Not visible with mouse, so i'll let this one pass
             _mouseY = Input.GetAxis("Mouse Y") * _fieldSideFactor;
 
             UpdateMovement(_mouseScrollValue, _mouseY);
@@ -478,7 +480,7 @@ public class Net_SoccerBar : NetworkBehaviour
 
         // ----- Update Movement
         // If mouse changed
-        if (pMoveY != _lastMouseY)
+        if (pMoveY != 0)
         {
             _movementQueued = true;
             _addedForceQueued = new Vector3(0f, 0f, pMoveY * _barSpeed);
