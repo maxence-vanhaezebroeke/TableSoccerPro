@@ -618,6 +618,7 @@ public class Net_Player : NetworkBehaviour
             return;
         }
 
+        // If we have less than 4 bars, we have to find the bar with the correct bar disposition
         for (int lSoccerBarIndex = 0; lSoccerBarIndex < _soccerBars.Count; lSoccerBarIndex++)
         {
             if (_soccerBars[lSoccerBarIndex].GetBarDisposition == pBarDisposition)

@@ -220,6 +220,7 @@ public class Net_SoccerBar : NetworkBehaviour
         if (_isPowerShotActive)
             return;
 
+        // TODO: Don't change position, use rigidbody to MovePosition or MoveRotation !
         transform.position = pRD.Position;
         transform.rotation = pRD.Rotation;
         _rb.velocity = pRD.Velocity;
@@ -272,6 +273,7 @@ public class Net_SoccerBar : NetworkBehaviour
         if (pMoveData.IsOutOfBounds)
         {
             _rb.velocity = Vector3.zero;
+            // TODO: Don't set position like this, use rigidbody MovePosition !
             if (transform.position.z > _initialZLocation + _zBound)
                 transform.position = new Vector3(transform.position.x, transform.position.y, _initialZLocation + _zBound);
             else if (transform.position.z < _initialZLocation - _zBound)
