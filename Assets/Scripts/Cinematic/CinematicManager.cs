@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class CinematicManager : MonoBehaviour
 {
+
+    [Header("Field")]
     [SerializeField]
     private Cine_SoccerBar _attackers;
     [SerializeField]
@@ -16,9 +18,15 @@ public class CinematicManager : MonoBehaviour
     [SerializeField]
     private CinematicBehaviour _ball;
 
+    [Header("UI")]
+    [SerializeField]
+    private UI_Cinematic _UICinematicPrefab;
+
     private Rigidbody _ballRb;
 
     private float _shotPower = 50f;
+
+    private bool _isCinematicEnded = false;
 
     void Awake()
     {
@@ -26,6 +34,7 @@ public class CinematicManager : MonoBehaviour
         UtilityLibrary.ThrowIfNull(this, _defenders);
         UtilityLibrary.ThrowIfNull(this, _goalkeeper);
         UtilityLibrary.ThrowIfNull(this, _camera);
+        UtilityLibrary.ThrowIfNull(this, _UICinematicPrefab);
 
         _ballRb = _ball.GetComponent<Rigidbody>();
     }
@@ -37,6 +46,40 @@ public class CinematicManager : MonoBehaviour
         CinematicSequence();
     }
 
+    void Update()
+    {
+        if (_isCinematicEnded == false && (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Space)))
+        {
+            SkipCinematic();
+        }
+    }
+
+    private void SkipCinematic()
+    {
+        StopCinematic();
+        OnCinematicEnds(true);
+        // This is the final position & rotation of the camera when the cinematic ends
+        _camera.transform.localPosition = new Vector3(-6.24f, 3.02f, 1.98f);
+        _camera.transform.rotation = Quaternion.Euler(new Vector3(16.987f, 94.35f, 0f));
+    }
+
+    private void StopCinematic()
+    {
+        StopAllCoroutines();
+        StopBall();
+        StopCinematicBehaviour(_attackers);
+        StopCinematicBehaviour(_defenders);
+        StopCinematicBehaviour(_goalkeeper);
+        StopCinematicBehaviour(_camera);
+        StopCinematicBehaviour(_ball);
+    }
+
+    private void StopCinematicBehaviour(CinematicBehaviour pCinematicBehaviour)
+    {
+        pCinematicBehaviour.StopMovement();
+        pCinematicBehaviour.StopRotation();
+    }
+
     private void CinematicSequence()
     {
         StartCoroutine(CameraSequence());
@@ -44,6 +87,15 @@ public class CinematicManager : MonoBehaviour
         StartCoroutine(GoalkeeperSequence());
         StartCoroutine(DefendersSequence());
         StartCoroutine(AttackersSequence());
+    }
+
+    private void OnCinematicEnds(bool pIsCinematicSkipped)
+    {
+        UI_Cinematic lUICinematic = Instantiate(_UICinematicPrefab);
+        if (pIsCinematicSkipped)
+            lUICinematic._skipAnimation = true;
+
+        _isCinematicEnded = true;
     }
 
     private IEnumerator CameraSequence()
@@ -63,8 +115,10 @@ public class CinematicManager : MonoBehaviour
         
         
         // Ending travelling...
-        _camera.Move(new Vector3(0f, 2f, -.2f) * .6f, 3f, 1f);
-        _camera.Rotate(new Vector3(-10f, -35f, 0f) * .6f, 3f);
+        _camera.Move(new Vector3(0f, 2f, -.2f) * .75f, 3f, 1f);
+        _camera.Rotate(new Vector3(-10f, -35f, 0f) * .75f, 3f);
+        yield return new WaitForSeconds(1f);
+        OnCinematicEnds(false);
     }
 
     private IEnumerator BallSequence()
