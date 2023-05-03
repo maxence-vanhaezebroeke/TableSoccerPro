@@ -419,3 +419,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _infoText: {fileID: 5970525883359181462}
   _joinCodeText: {fileID: 4590190196520386061}
+  _visibilityKey: 283

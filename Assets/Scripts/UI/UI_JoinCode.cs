@@ -9,6 +9,9 @@ public class UI_JoinCode : MonoBehaviour
     [SerializeField]
     private TextMeshProUGUI _joinCodeText;
 
+    [SerializeField]
+    private KeyCode _visibilityKey;
+
     void Awake()
     {
         UtilityLibrary.ThrowIfNull(this, _infoText);
@@ -48,7 +51,7 @@ public class UI_JoinCode : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F2))
+        if (Input.GetKeyDown(_visibilityKey))
         {
             if (IsVisible())
                 Hide();
