@@ -477,6 +477,14 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -6086968712795281028, guid: 492c907a52ed33f42860ad7b5f374a42, type: 3}
+      propertyPath: _networkPlayerPrefab
+      value: 
+      objectReference: {fileID: 1737975672977914384, guid: fd5767aa1ec2d4f458d5b5bae22d460e, type: 3}
+    - target: {fileID: 74296680907252953, guid: 492c907a52ed33f42860ad7b5f374a42, type: 3}
+      propertyPath: _spawnablePrefabs
+      value: 
+      objectReference: {fileID: 11400000, guid: 3880412e45389fc47a186245dd65e007, type: 2}
     - target: {fileID: 74296680907252954, guid: 492c907a52ed33f42860ad7b5f374a42, type: 3}
       propertyPath: m_RootOrder
       value: 3

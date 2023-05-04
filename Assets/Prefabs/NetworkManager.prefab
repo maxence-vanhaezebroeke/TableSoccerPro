@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 74296680907252954}
   - component: {fileID: 74296680907252953}
+  - component: {fileID: -6086968712795281028}
   - component: {fileID: 74296680907252952}
-  - component: {fileID: 74296680907252967}
   - component: {fileID: 74296680907252966}
   - component: {fileID: 74296680907252965}
   - component: {fileID: 74296680907252964}
@@ -60,6 +60,19 @@ MonoBehaviour:
   _persistence: 1
   _logging: {fileID: 0}
   _spawnablePrefabs: {fileID: 11400000, guid: 2f580a1810fa20b45a4ff54fca805670, type: 2}
+--- !u!114 &-6086968712795281028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 74296680907252961}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c990a09f7fc7fca448d042166d0d2a14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _networkPlayerPrefab: {fileID: 0}
 --- !u!114 &74296680907252952
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -80,19 +93,6 @@ MonoBehaviour:
     _latency: 0
     _outOfOrder: 0
     _packetLoss: 0
---- !u!114 &74296680907252967
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 74296680907252961}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f97583ffac02dd43a1b6f8bf2dcc5cd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _playerPrefab: {fileID: 7654449855852828390, guid: c8fda4d943f9be244b88119148f1000e, type: 3}
 --- !u!114 &74296680907252966
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 9f44b03a800de0440a9316168f85deb7
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - _onePlayerSoccerBarPrefab: {fileID: 444494078137926481, guid: 6565cabbe4fec2243ac7b1dcf709f171, type: 3}
+  - _twoPlayerSoccerBarPrefab: {fileID: 676870721618976974, guid: 4150e8f81dd1f584fa0a72d3511799c7, type: 3}
+  - _threePlayerSoccerBarPrefab: {fileID: 4083261845754535300, guid: fae5f09f0b3ddd34781dd46441a21717, type: 3}
+  - _fivePlayerSoccerBarPrefab: {fileID: 5470483455477208166, guid: 64c350e66c765494786ef85fe080d94c, type: 3}
+  - _soccerFieldPrefab: {fileID: 1433077720868751498, guid: 7116652aedca3a74ba2b97544a77a8a4, type: 3}
+  - _soccerBallPrefab: {fileID: 6601339638257668254, guid: 2520a0e8b96ee44479b155922dc2728d, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

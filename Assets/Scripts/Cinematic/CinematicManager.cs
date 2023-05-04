@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -24,8 +25,6 @@ public class CinematicManager : MonoBehaviour
 
     private Rigidbody _ballRb;
 
-    private float _shotPower = 50f;
-
     private bool _isCinematicEnded = false;
 
     void Awake()
@@ -42,7 +41,15 @@ public class CinematicManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        // Activate physics and wait for camera fade to end
         Physics.autoSimulation = true;
+        _camera.OnCameraFadeEnded += CinematicCamera_OnCameraFadeEnded;
+    }
+
+    private void CinematicCamera_OnCameraFadeEnded()
+    {
+        // When camera fade ends, start cinematic !
+        _camera.OnCameraFadeEnded -= CinematicCamera_OnCameraFadeEnded;
         CinematicSequence();
     }
 

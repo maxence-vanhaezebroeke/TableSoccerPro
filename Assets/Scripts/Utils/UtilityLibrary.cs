@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public static class UtilityLibrary
@@ -28,5 +29,43 @@ public static class UtilityLibrary
         list[indexA] = list[indexB];
         list[indexB] = tmp;
     }
+
+    public static List<NetworkSoccerBar> OrderSizeTwoSoccerBars(List<NetworkSoccerBar> pSoccerBars)
+    {
+        // If player has a 5 player bar, he's attacking
+        if (pSoccerBars[0].NumberOfPlayers() == 5 || pSoccerBars[1].NumberOfPlayers() == 5)
+        {
+            // If player is attacking and first bar isn't 5 player, it's not ordered
+            if (pSoccerBars[0].NumberOfPlayers() != 5)
+            {
+                // Swap elements
+                UtilityLibrary.Swap<NetworkSoccerBar>(pSoccerBars, 0, 1);
+            }
+        }
+        else
+        {
+            // If player is defending and first bar isn't goalkeeper, it's not ordered
+            if (pSoccerBars[0].NumberOfPlayers() != 1)
+            {
+                UtilityLibrary.Swap<NetworkSoccerBar>(pSoccerBars, 0, 1);
+            }
+        }
+
+        // Ordered list
+        return pSoccerBars;
+    }
+
+    public static List<NetworkSoccerBar> OrderSizeFourSoccerBars(List<NetworkSoccerBar> pSoccerBars)
+    {
+        // Size four soccer bar disposition is [1, 2, 5, 3] (based on number of players) : 
+        // - Goalkeeper (1 player)
+        // - Defenders (2 players)
+        // - Halves (5 players)
+        // - Attackers (3 players)
+        // So first, order list by ascending number of player [1, 2, 3, 5]
+        List<NetworkSoccerBar> lOrderedList = pSoccerBars.OrderBy(bar => bar.NumberOfPlayers()).ToList();
+        // Then swap two lasts bars, to get [1, 2, 5, 3]
+        UtilityLibrary.Swap<NetworkSoccerBar>(lOrderedList, 3, 2);
+        return lOrderedList;
+    }
 }
- 

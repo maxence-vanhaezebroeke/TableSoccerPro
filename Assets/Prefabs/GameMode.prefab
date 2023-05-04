@@ -10,6 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 2087619667251118169}
   - component: {fileID: 5799952906304485226}
+  - component: {fileID: 414002103790236237}
+  - component: {fileID: 3686804947219409153}
   m_Layer: 0
   m_Name: GameMode
   m_TagString: Untagged
@@ -44,4 +46,41 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2158b3cecac03c849b37fee681801e4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _numberOfPlayer: 2
+--- !u!114 &414002103790236237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7170573316601123440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 687d3be9b17782f4595e464daa5246b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _onePlayerSoccerBarPrefab: {fileID: 444494078137926481, guid: 6565cabbe4fec2243ac7b1dcf709f171, type: 3}
+  _twoPlayerSoccerBarPrefab: {fileID: 676870721618976974, guid: 4150e8f81dd1f584fa0a72d3511799c7, type: 3}
+  _threePlayerSoccerBarPrefab: {fileID: 4083261845754535300, guid: fae5f09f0b3ddd34781dd46441a21717, type: 3}
+  _fivePlayerSoccerBarPrefab: {fileID: 5470483455477208166, guid: 64c350e66c765494786ef85fe080d94c, type: 3}
+  _soccerFieldPrefab: {fileID: 1433077720868751498, guid: 7116652aedca3a74ba2b97544a77a8a4, type: 3}
+  _soccerBallPrefab: {fileID: 6601339638257668254, guid: 2520a0e8b96ee44479b155922dc2728d, type: 3}
+  _fieldLocation: {x: 0, y: 0, z: 0}
+--- !u!114 &3686804947219409153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7170573316601123440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63a91b833d01ac649a2f4142acaf6b78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _onePlayerSoccerBarPrefab: {fileID: 444494078137926481, guid: 6565cabbe4fec2243ac7b1dcf709f171, type: 3}
+  _twoPlayerSoccerBarPrefab: {fileID: 676870721618976974, guid: 4150e8f81dd1f584fa0a72d3511799c7, type: 3}
+  _threePlayerSoccerBarPrefab: {fileID: 4083261845754535300, guid: fae5f09f0b3ddd34781dd46441a21717, type: 3}
+  _fivePlayerSoccerBarPrefab: {fileID: 5470483455477208166, guid: 64c350e66c765494786ef85fe080d94c, type: 3}
+  _soccerFieldPrefab: {fileID: 1433077720868751498, guid: 7116652aedca3a74ba2b97544a77a8a4, type: 3}
+  _soccerBallPrefab: {fileID: 6601339638257668254, guid: 2520a0e8b96ee44479b155922dc2728d, type: 3}
+  _fieldLocation: {x: 0, y: 0, z: 0}
