@@ -140,9 +140,7 @@ public class NetworkSoccerPlayer : NetworkPlayer
             Destroy(_playerControls.gameObject);
     }
 
-    // FIXME : this was previously called by Net_soccerbar on bar spawn
-    // BUT, for client, bar was searching for player to call it ! this is ridiculous
-    // SoccerPlayerManager should ask game manager to spawn bar, and on bar spawn, give it to the correct player! (call server & owning player function)
+    // Adding soccer bar
     public void AddSoccerBar(NetworkSoccerBar pSoccerBar)
     {
         if (_soccerBars == null)
