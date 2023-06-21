@@ -9,7 +9,7 @@ A 4-player game means that every player is controlling 2 bars, either from the a
 Players can move the bars up & down using mouse Y, and rotate the bars using mouse scroll.  
 Players can also do a power-shot by using the left click : a powerful shots that rotates the bar at full speed towards the other team's net, and send back the bar as its initial rotation.
 
-*Insert in-game GIFs here!*
+![](https://github.com/maxence-vanhaezebroeke/TableSoccerPro/blob/main/gif-preview/TableSoccerPro-Gameplay.gif)
 
 # Table of contents
 * [About development](#about-development)
@@ -34,7 +34,7 @@ That being said, NGO is **not** at this date *(May 2023)* giving tools to implem
 
 I made a cinematic before getting to the main menu. Once landed on the main menu, you can choose between playing in LAN or playing Online, and choose between playing with 2 or 4 players.
 
-*I would really like to insert GIF here too...*
+![](https://github.com/maxence-vanhaezebroeke/TableSoccerPro/blob/main/gif-preview/TableSoccerPro-Cinematic-light.gif)
 
 ## Start host or client
 
